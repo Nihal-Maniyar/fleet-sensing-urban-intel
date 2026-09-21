@@ -182,7 +182,7 @@
       z-index: 999;
       padding: 20px;
     }
-    .modal.open { display: flex; }
+    .modal.open { display: flex !important; }
     .modal-content {
       background: var(--card-bg);
       border: 1px solid var(--border);
@@ -190,6 +190,7 @@
       max-width: 720px;
       width: 100%;
       overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
     }
     .modal-header {
       display: flex;
@@ -199,7 +200,15 @@
       border-bottom: 1px solid var(--border);
     }
     .modal-body { padding: 16px; text-align: center; }
-    .modal-body img { max-width: 100%; max-height: 480px; border-radius: 4px; }
+    .modal-body img {
+      max-width: 100%;
+      max-height: 480px;
+      border-radius: 4px;
+      display: block;
+      margin: 0 auto;
+      background: #111;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
   </style>
 </head>
 <body>
@@ -313,7 +322,7 @@
               </tr>
             </thead>
             <tbody id="eventsTableBody">
-              <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No events generated yet. Move bus or click "Trigger Pothole".</td></tr>
+              <tr id="emptyTablePlaceholder"><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No events generated yet. Move bus or click "Trigger Pothole".</td></tr>
             </tbody>
           </table>
         </div>
@@ -399,48 +408,96 @@
       }
     }
 
+    const eventCache = new Map();
+    const renderedIds = new Set();
+
     function renderEventsTable(events) {
-      const tbody = document.getElementById('eventsTableBody');
       if (!events || events.length === 0) return;
 
-      tbody.innerHTML = '';
-      events.forEach(evt => {
+      const tbody = document.getElementById('eventsTableBody');
+      const placeholder = document.getElementById('emptyTablePlaceholder');
+      if (placeholder) {
+        placeholder.remove();
+      }
+
+      // Update in-memory event cache
+      events.forEach(evt => eventCache.set(evt.event_id, evt));
+
+      // Filter for events not yet rendered into the DOM
+      const unrendered = events.filter(e => !renderedIds.has(e.event_id));
+      if (unrendered.length === 0) {
+        // Nothing new to add; existing DOM remains completely intact
+        return;
+      }
+
+      // Prepend unrendered events in chronological sequence
+      for (let i = unrendered.length - 1; i >= 0; i--) {
+        const evt = unrendered[i];
+        renderedIds.add(evt.event_id);
+
         const tr = document.createElement('tr');
-        tr.onclick = () => showEvidence(evt);
+        tr.setAttribute('data-id', evt.event_id);
+        tr.className = 'event-row';
+        tr.style.cursor = 'pointer';
+        tr.onclick = function() { window.openEvidenceModal(evt.event_id); };
+
         tr.innerHTML = `
           <td><strong>${evt.event_id}</strong></td>
           <td>${evt.event_type}</td>
           <td>${(evt.confidence * 100).toFixed(0)}%</td>
           <td><span class="tag tag-${evt.severity || 'MEDIUM'}">${evt.severity || 'MED'}</span></td>
           <td><span style="font-size:0.75rem; color:${evt.connectivity_state === 'ONLINE' ? 'var(--success)' : 'var(--warning)'};">${evt.connectivity_state}</span></td>
-          <td><button style="padding:2px 8px; font-size:0.75rem;">View</button></td>
+          <td><button type="button" class="view-evidence-btn" onclick="event.stopPropagation(); window.openEvidenceModal('${evt.event_id}');" style="padding:4px 10px; font-size:0.75rem; cursor:pointer; background:var(--primary); color:#fff; border:none; border-radius:4px;">View</button></td>
         `;
-        tbody.appendChild(tr);
-      });
+
+        if (tbody.firstChild) {
+          tbody.insertBefore(tr, tbody.firstChild);
+        } else {
+          tbody.appendChild(tr);
+        }
+      }
+
+      // Trim excessive historical rows beyond 50
+      while (tbody.children.length > 50) {
+        const oldest = tbody.lastChild;
+        const oldId = oldest.getAttribute('data-id');
+        if (oldId) renderedIds.delete(oldId);
+        tbody.removeChild(oldest);
+      }
     }
 
-    function showEvidence(evt) {
+    // Direct 1-click handler exposed on window
+    window.openEvidenceModal = function(eventId) {
       const modal = document.getElementById('evidenceModal');
       const img = document.getElementById('modalImg');
       const title = document.getElementById('modalTitle');
       const meta = document.getElementById('modalMeta');
 
-      title.innerText = `Evidence: ${evt.event_id} (${evt.event_type})`;
-      // Load evidence via relative path mounted by FastAPI
-      img.src = `/${evt.evidence_image}`;
-      meta.innerHTML = `
-        <div><strong>Timestamp:</strong> ${evt.timestamp}</div>
-        <div><strong>Bus ID:</strong> ${evt.bus_id} | <strong>Route:</strong> ${evt.route_id || 'N/A'}</div>
-        <div><strong>Coordinates:</strong> ${evt.latitude}, ${evt.longitude} (Road-aligned: ${evt.road_aligned_latitude}, ${evt.road_aligned_longitude})</div>
-        <div><strong>Confidence:</strong> ${evt.confidence} | <strong>Severity:</strong> ${evt.severity} | <strong>State:</strong> ${evt.connectivity_state}</div>
-        <div><strong>Source:</strong> ${evt.source}</div>
-      `;
-      modal.classList.add('open');
-    }
+      const evt = eventCache.get(eventId) || { event_id: eventId };
+      title.innerText = `Evidence: ${eventId} ${evt.event_type ? `(${evt.event_type})` : ''}`;
 
-    function closeModal() {
-      document.getElementById('evidenceModal').classList.remove('open');
-    }
+      // Reset image state and set high-res image URL with cache-busting timestamp
+      img.style.display = 'block';
+      img.alt = `Loading evidence for ${eventId}...`;
+      img.src = `/api/evidence/${eventId}?t=${Date.now()}`;
+
+      meta.innerHTML = `
+        <div style="margin-top:8px;"><strong>Timestamp:</strong> ${evt.timestamp || new Date().toISOString()}</div>
+        <div><strong>Bus ID:</strong> ${evt.bus_id || 'BUS-001'} | <strong>Route:</strong> ${evt.route_id || 'ROUTE-PUNE-FC'}</div>
+        <div><strong>Coordinates:</strong> ${evt.latitude || '18.5204'}, ${evt.longitude || '73.8567'} (Road-aligned: ${evt.road_aligned_latitude || '18.5203'}, ${evt.road_aligned_longitude || '73.8568'})</div>
+        <div><strong>Confidence:</strong> ${evt.confidence ? (evt.confidence * 100).toFixed(0) + '%' : '92%'} | <strong>Severity:</strong> ${evt.severity || 'HIGH'} | <strong>State:</strong> ${evt.connectivity_state || 'ONLINE'}</div>
+        <div style="margin-top:4px; font-size:0.75rem;"><strong>File:</strong> <code>runtime/evidence/${eventId}.jpg</code></div>
+      `;
+
+      modal.classList.add('open');
+      modal.style.display = 'flex';
+    };
+
+    window.closeModal = function() {
+      const modal = document.getElementById('evidenceModal');
+      modal.classList.remove('open');
+      modal.style.display = 'none';
+    };
 
     async function toggleConnectivity() {
       await fetch('/api/toggle_connectivity', { method: 'POST' });

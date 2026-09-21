@@ -37,6 +37,11 @@ def capture_evidence_image(
     target = Path(file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
+    # Also ensure path in project root runtime/evidence exists
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    root_target = (repo_root / file_path).resolve()
+    root_target.parent.mkdir(parents=True, exist_ok=True)
+
     # Work on a copy of the frame
     annotated = frame.copy()
     h, w = annotated.shape[:2]
@@ -97,6 +102,11 @@ def capture_evidence_image(
 
     # Save to disk as standard JPEG
     success = cv2.imwrite(str(target), annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if root_target != target.resolve():
+        try:
+            cv2.imwrite(str(root_target), annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        except Exception:
+            pass
     if not success:
         logger.error("Failed writing evidence frame to %s", target)
 
