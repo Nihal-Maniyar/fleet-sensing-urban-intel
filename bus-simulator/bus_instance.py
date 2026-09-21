@@ -1,0 +1,345 @@
+"""Central coordinator for a single running bus sensing instance.
+
+Integrates camera, YOLO inference, ByteTrack multi-object tracking, GNSS/IMU sensors,
+temporal event engine, SQLite WAL outbox, and MQTT publisher.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import cv2
+import numpy as np
+
+try:
+    from camera.stream import OpenCVFileStream, SyntheticRoadStream, VideoStreamSource
+    from detection.interface import Detection
+    from detection.yolo import YOLODetector
+    from events.engine import TemporalEventEngine
+    from events.schema import Event
+    from sensors.gnss import GNSSSimulator
+    from sensors.imu import IMUReading, IMUSimulator
+    from tracking.byte_tracker import ByteTracker, STrack
+    from transport.mqtt_client import MQTTTransport
+    from transport.outbox import SQLiteOutbox
+except ImportError:
+    from .camera.stream import OpenCVFileStream, SyntheticRoadStream, VideoStreamSource
+    from .detection.interface import Detection
+    from .detection.yolo import YOLODetector
+    from .events.engine import TemporalEventEngine
+    from .events.schema import Event
+    from .sensors.gnss import GNSSSimulator
+    from .sensors.imu import IMUReading, IMUSimulator
+    from .tracking.byte_tracker import ByteTracker, STrack
+    from .transport.mqtt_client import MQTTTransport
+    from .transport.outbox import SQLiteOutbox
+
+logger = logging.getLogger("actual_bus_simulator.instance")
+
+
+class BusInstance:
+    """One running instance of an actual sensing bus."""
+
+    def __init__(
+        self,
+        bus_id: str = "BUS-001",
+        route_id: str = "ROUTE-PUNE-FC",
+        video_source: str = "synthetic",
+        weights_path: Optional[str] = None,
+        outbox_db: Optional[str] = None,
+        mqtt_host: str = "localhost",
+        mqtt_port: int = 1883,
+        initial_connectivity: str = "ONLINE",
+        target_fps: int = 20,
+    ) -> None:
+        self.bus_id = bus_id
+        self.route_id = route_id
+        self.video_source_desc = video_source
+        self.connectivity_state = initial_connectivity
+        self.target_fps = target_fps
+        self.is_paused = False
+
+        # 1. Initialize Video Stream Source
+        if video_source == "synthetic":
+            self.camera: VideoStreamSource = SyntheticRoadStream(
+                fps=self.target_fps,
+                on_defect_pass_callback=self._on_defect_passed,
+            )
+        else:
+            # Video file or camera device index
+            src: str | int = int(video_source) if video_source.isdigit() else video_source
+            self.camera = OpenCVFileStream(src)
+
+        # 2. Initialize AI Detector & ByteTrack Tracker
+        self.detector = YOLODetector(weights_path=weights_path)
+        self.tracker = ByteTracker(track_thresh=0.45, low_thresh=0.15, max_age=30, min_hits=2)
+
+        # 3. Initialize Sensors
+        self.gnss = GNSSSimulator(route_id=self.route_id, speed_kmh=36.0)
+        self.imu = IMUSimulator(sample_rate_hz=float(self.target_fps))
+
+        # 4. Initialize Event Engine
+        self.event_engine = TemporalEventEngine(
+            bus_id=self.bus_id,
+            min_persistence_frames=3,
+            spatial_suppression_meters=15.0,
+            time_suppression_seconds=25.0,
+        )
+
+        # 5. Initialize Storage & MQTT Transport
+        db_path = outbox_db or f"runtime/bus_{self.bus_id.lower()}_outbox.db"
+        self.outbox = SQLiteOutbox(db_path=db_path)
+        self.mqtt = MQTTTransport(
+            host=mqtt_host,
+            port=mqtt_port,
+            client_id=f"bus-sensing-{self.bus_id.lower()}",
+        )
+        self.mqtt.connect()
+
+        # State tracking
+        self.latest_frame_annotated: Optional[np.ndarray] = None
+        self.latest_raw_frame: Optional[np.ndarray] = None
+        self.latest_detections: List[Detection] = []
+        self.latest_tracks: List[STrack] = []
+        self.recent_events: List[Event] = []
+        self.latest_imu: Optional[IMUReading] = None
+        self.current_lat: float = 0.0
+        self.current_lon: float = 0.0
+        self.road_lat: float = 0.0
+        self.road_lon: float = 0.0
+        self.heading: float = 0.0
+
+        self._lock = threading.Lock()
+        self._running = False
+        self._worker_thread: Optional[threading.Thread] = None
+
+    def _on_defect_passed(self, class_name: str) -> None:
+        """Coupled physics callback: trigger an IMU shock when bus rolls over defect."""
+        if class_name == "POTHOLE":
+            self.imu.trigger_shock(intensity_g=2.4)
+            logger.info("IMU shock triggered for %s pothole impact", self.bus_id)
+
+    def trigger_defect(self, class_name: str = "POTHOLE") -> None:
+        """Manually trigger a defect appearance on the road view."""
+        if isinstance(self.camera, SyntheticRoadStream):
+            self.camera.trigger_defect(class_name=class_name)
+        else:
+            # Inject detection directly into detector
+            h, w = (480, 640)
+            now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self.detector.inject_detection(
+                Detection(
+                    box=(float(w * 0.4), float(h * 0.65), float(w * 0.6), float(h * 0.8)),
+                    confidence=0.89,
+                    class_name=class_name,
+                    timestamp=now_utc,
+                )
+            )
+
+    def trigger_shock(self, intensity_g: float = 2.5) -> None:
+        """Trigger an IMU shock reading manually."""
+        self.imu.trigger_shock(intensity_g=intensity_g)
+
+    def set_connectivity(self, state: str) -> None:
+        """Set connectivity state ('ONLINE' or 'OFFLINE') and replay outbox on reconnection."""
+        with self._lock:
+            old_state = self.connectivity_state
+            self.connectivity_state = state.upper()
+            logger.info("[%s] Connectivity changed: %s -> %s", self.bus_id, old_state, self.connectivity_state)
+
+            if old_state == "OFFLINE" and self.connectivity_state == "ONLINE":
+                # Replay pending outbox events across MQTT
+                replayed = self.mqtt.replay_outbox(self.outbox)
+                logger.info("[%s] Replayed %d pending outbox events after reconnect", self.bus_id, replayed)
+
+    def toggle_connectivity(self) -> str:
+        """Toggle connectivity between ONLINE and OFFLINE."""
+        new_state = "OFFLINE" if self.connectivity_state == "ONLINE" else "ONLINE"
+        self.set_connectivity(new_state)
+        return new_state
+
+    def replay_outbox(self) -> int:
+        """Force replay of pending outbox events."""
+        with self._lock:
+            return self.mqtt.replay_outbox(self.outbox)
+
+    def step(self) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Advance one sensing frame step: Camera -> YOLO -> ByteTrack -> Event -> Transport."""
+        with self._lock:
+            now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            # 1. Advance GNSS and IMU sensors
+            raw_lat, raw_lon, road_lat, road_lon, heading = self.gnss.step(dt_seconds=1.0 / self.target_fps)
+            self.current_lat = raw_lat
+            self.current_lon = raw_lon
+            self.road_lat = road_lat
+            self.road_lon = road_lon
+            self.heading = heading
+
+            imu_reading = self.imu.step(speed_kmh=self.gnss.speed_kmh)
+            self.latest_imu = imu_reading
+
+            # 2. Read camera frame
+            ret, frame = self.camera.read()
+            if not ret or frame is None:
+                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+            self.latest_raw_frame = frame.copy()
+
+            # 3. Run YOLO object detection
+            detections = self.detector.detect(frame, timestamp=now_utc)
+            self.latest_detections = detections
+
+            # 4. Run ByteTrack multi-object tracker
+            tracks = self.tracker.update(detections)
+            self.latest_tracks = tracks
+
+            # 5. Run Temporal Event Engine
+            new_events = self.event_engine.process_tracks(
+                tracks=tracks,
+                frame=frame,
+                latitude=raw_lat,
+                longitude=raw_lon,
+                road_aligned_latitude=road_lat,
+                road_aligned_longitude=road_lon,
+                heading_degrees=heading,
+                route_id=self.route_id,
+                connectivity_state=self.connectivity_state,
+                timestamp=now_utc,
+            )
+
+            # 6. Transport handling: MQTT vs SQLite WAL outbox
+            for event in new_events:
+                self.recent_events.insert(0, event)
+                if len(self.recent_events) > 50:
+                    self.recent_events.pop()
+
+                if self.connectivity_state == "ONLINE":
+                    published = self.mqtt.publish_event(event)
+                    if not published:
+                        # Fallback to outbox if broker unreachable
+                        self.outbox.enqueue(event)
+                else:
+                    # Device is OFFLINE: store in SQLite WAL queue
+                    self.outbox.enqueue(event)
+
+            # 7. Render UI overlay frame with bounding boxes, ByteTrack IDs, HUD
+            annotated_frame = self._render_display_frame(frame, tracks, now_utc)
+            self.latest_frame_annotated = annotated_frame
+
+            # 8. Compile telemetry packet
+            telemetry = {
+                "bus_id": self.bus_id,
+                "route_id": self.route_id,
+                "timestamp": now_utc,
+                "connectivity_state": self.connectivity_state,
+                "latitude": round(raw_lat, 6),
+                "longitude": round(raw_lon, 6),
+                "road_aligned_latitude": round(road_lat, 6),
+                "road_aligned_longitude": round(road_lon, 6),
+                "heading_degrees": round(heading, 1),
+                "speed_kmh": round(self.gnss.speed_kmh, 1),
+                "imu": {
+                    "ax": imu_reading.ax,
+                    "ay": imu_reading.ay,
+                    "az": imu_reading.az,
+                    "gx": imu_reading.gx,
+                    "gy": imu_reading.gy,
+                    "gz": imu_reading.gz,
+                    "shock_detected": imu_reading.shock_detected,
+                },
+                "active_tracks_count": len(tracks),
+                "pending_outbox_count": self.outbox.count_pending(),
+                "total_events_generated": len(self.recent_events),
+                "latest_event_id": self.recent_events[0].event_id if self.recent_events else None,
+            }
+
+            return annotated_frame, telemetry
+
+    def _render_display_frame(
+        self,
+        frame: np.ndarray,
+        tracks: List[STrack],
+        timestamp: str,
+    ) -> np.ndarray:
+        """Render detection bounding boxes, ByteTrack IDs, confidence, and HUD overlay."""
+        display = frame.copy()
+        h, w = display.shape[:2]
+
+        # Draw ByteTrack object tracks
+        for trk in tracks:
+            x1, y1, x2, y2 = [int(v) for v in trk.box]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w - 1, x2), min(h - 1, y2)
+
+            box_color = (0, 0, 240) if trk.class_name == "POTHOLE" else (0, 180, 240)
+            cv2.rectangle(display, (x1, y1), (x2, y2), box_color, 2)
+
+            # Label overlay: Class, Track ID, Confidence
+            tag = f"#{trk.track_id} {trk.class_name} {trk.confidence:.2f}"
+            (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+            cv2.rectangle(display, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), box_color, -1)
+            cv2.putText(
+                display,
+                tag,
+                (x1 + 3, y1 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                (255, 255, 255),
+                1,
+                cv2.LINE_AA,
+            )
+
+        # Draw Top HUD Bar
+        cv2.rectangle(display, (0, 0), (w, 30), (15, 15, 20), -1)
+
+        # Bus identity & connectivity pill
+        conn_color = (0, 220, 100) if self.connectivity_state == "ONLINE" else (0, 140, 255)
+        cv2.circle(display, (16, 15), 6, conn_color, -1)
+        hud_text = f"{self.bus_id} ({self.connectivity_state}) | {self.route_id} | {timestamp}"
+        cv2.putText(display, hud_text, (28, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (230, 230, 230), 1, cv2.LINE_AA)
+
+        # Right GPS coords
+        gps_text = f"{self.current_lat:.5f}, {self.current_lon:.5f}"
+        (gw, _), _ = cv2.getTextSize(gps_text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        cv2.putText(display, gps_text, (w - gw - 12, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (180, 210, 240), 1, cv2.LINE_AA)
+
+        return display
+
+    def start_loop(self) -> None:
+        """Start background processing loop."""
+        if self._running:
+            return
+        self._running = True
+        self._worker_thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._worker_thread.start()
+        logger.info("[%s] Sensing pipeline loop started", self.bus_id)
+
+    def stop_loop(self) -> None:
+        """Stop background processing loop."""
+        self._running = False
+        if self._worker_thread:
+            self._worker_thread.join(timeout=2.0)
+        self.camera.release()
+        self.mqtt.disconnect()
+        logger.info("[%s] Sensing pipeline loop stopped", self.bus_id)
+
+    def _run_loop(self) -> None:
+        """Continuous background execution loop maintaining target FPS."""
+        frame_interval = 1.0 / max(1, self.target_fps)
+        while self._running:
+            t0 = time.time()
+            if not self.is_paused:
+                try:
+                    self.step()
+                except Exception as e:
+                    logger.error("[%s] Pipeline step exception: %s", self.bus_id, e)
+
+            elapsed = time.time() - t0
+            sleep_time = max(0.005, frame_interval - elapsed)
+            time.sleep(sleep_time)
