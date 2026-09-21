@@ -11,6 +11,7 @@ Initial logical records:
 - `incident_observations`: relationship preserving the evidence trail.
 - `tickets`: civic ticket identifier, incident relation, department, and lifecycle history.
 - `ticket_status_history`: append-only status transitions and authority notes.
+- `work_orders`: optional operational handoff linked to a ticket after assignment; it is a prototype record, not an external municipal integration.
 - `edge_outbox` (optional edge-side SQLite): queued events, retry count, and synchronization state.
 
 Store original coordinates and road-aligned coordinates separately; never silently replace one with the other. Preserve evidence references and event IDs for replay/idempotency. Use spatial points and indexes once a migration is approved. All migrations must be ordered, reversible where practical, and reviewed by Group 2 and Group 3.
