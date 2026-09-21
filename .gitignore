@@ -134,3 +134,6 @@ coverage.xml
 # =========================================================
 
 docker-data/
+
+# Local tooling wrappers
+powershell.bat
