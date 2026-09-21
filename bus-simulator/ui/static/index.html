@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Actual Bus Simulator — Edge AI Sensing Path</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card-bg: #1a1d26;
+      --border: #2c3140;
+      --text: #f0f3f8;
+      --muted: #8b949e;
+      --primary: #3b82f6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --accent: #8b5cf6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.4;
+      padding: 16px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .badge {
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .badge-bus { background: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; }
+    .badge-online { background: #064e3b; color: #6ee7b7; border: 1px solid #10b981; }
+    .badge-offline { background: #78350f; color: #fde68a; border: 1px solid #f59e0b; }
+    .badge-shock { background: #7f1d1d; color: #fca5a5; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 1024px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Video feed styling */
+    .video-container {
+      position: relative;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+    }
+    .video-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Controls bar */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      background: #252b3b;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    button:hover { background: #32394e; border-color: var(--primary); }
+    button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    button.primary:hover { background: #2563eb; }
+    button.warning { background: var(--warning); color: #000; border-color: var(--warning); }
+    button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+    /* Telemetry metrics */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .metric-item {
+      background: #13151c;
+      border: 1px solid #232733;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .metric-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; }
+    .metric-value { font-size: 1.15rem; font-weight: 700; margin-top: 4px; }
+    .metric-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    /* IMU meters */
+    .imu-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .imu-row { display: flex; align-items: center; font-size: 0.8rem; gap: 8px; }
+    .imu-label { width: 28px; font-weight: 700; }
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: #13151c;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-fill { height: 100%; width: 50%; background: var(--primary); border-radius: 4px; transition: width 0.1s; }
+
+    /* Events table */
+    .table-container {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left; }
+    th {
+      background: #13151c;
+      padding: 8px 10px;
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+    td { padding: 8px 10px; border-top: 1px solid var(--border); }
+    tr:hover { background: #222634; cursor: pointer; }
+    .tag { padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; }
+    .tag-HIGH { background: #7f1d1d; color: #fca5a5; }
+    .tag-MEDIUM { background: #78350f; color: #fde68a; }
+    .tag-LOW { background: #064e3b; color: #6ee7b7; }
+
+    /* Modal for evidence viewing */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
+    .modal.open { display: flex; }
+    .modal-content {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-width: 720px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-body { padding: 16px; text-align: center; }
+    .modal-body img { max-width: 100%; max-height: 480px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <h2>Actual Bus Simulator</h2>
+      <span class="badge badge-bus" id="busIdBadge">BUS-001</span>
+      <span class="badge badge-online" id="connBadge">ONLINE</span>
+      <span class="badge badge-shock" id="shockBadge" style="display: none;">IMU SHOCK DETECTED</span>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--muted);" id="clockDisplay">
+      2026-09-21T00:00:00Z
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Left Column: Video Feed & Operations -->
+    <div>
+      <div class="card">
+        <div class="card-title">
+          <span>Real-Time Edge AI Sensing (YOLO + ByteTrack)</span>
+          <span id="activeTracksLabel" style="color: var(--primary);">Tracks: 0</span>
+        </div>
+        <div class="video-container">
+          <img id="videoStream" src="/video_feed" alt="Live Dashcam Edge Stream" />
+        </div>
+        <div class="controls">
+          <button id="toggleConnBtn" onclick="toggleConnectivity()">Switch to OFFLINE</button>
+          <button class="warning" onclick="triggerPothole()">Trigger Pothole</button>
+          <button onclick="triggerShock()">Trigger IMU Shock</button>
+          <button class="primary" id="replayBtn" onclick="replayOutbox()">Replay Outbox (0)</button>
+          <button id="pauseBtn" onclick="togglePause()">Pause</button>
+        </div>
+      </div>
+
+      <!-- Outbox & Pipeline Details -->
+      <div class="card">
+        <div class="card-title">Edge Pipeline Status</div>
+        <div class="metric-grid">
+          <div class="metric-item">
+            <div class="metric-label">Transport Channel</div>
+            <div class="metric-value" id="transportMode">MQTT (Live)</div>
+            <div class="metric-sub" id="topicDesc">beyonders/events/v1</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">SQLite WAL Outbox Buffer</div>
+            <div class="metric-value" id="outboxPending">0 PENDING</div>
+            <div class="metric-sub">runtime/bus_outbox.db</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Telemetry & Contract Events Feed -->
+    <div>
+      <!-- Navigation & IMU -->
+      <div class="card">
+        <div class="card-title">GNSS / NavIC & 6-DOF IMU Telemetry</div>
+        <div class="metric-grid">
+          <div class="metric-item">
+            <div class="metric-label">Raw GNSS Coordinates</div>
+            <div class="metric-value" id="rawCoords" style="font-size: 0.95rem;">18.520400, 73.856700</div>
+            <div class="metric-sub" id="headingSpeed">Hdg: 92° | 36.0 km/h</div>
+          </div>
+          <div class="metric-item">
+            <div class="metric-label">Road-Aligned Coordinates</div>
+            <div class="metric-value" id="snappedCoords" style="font-size: 0.95rem; color: #93c5fd;">18.520300, 73.856800</div>
+            <div class="metric-sub" id="routeLabel">ROUTE-PUNE-FC</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <div style="font-size: 0.75rem; color: var(--muted); text-transform: uppercase;">IMU Accelerometer Dynamics (m/s²)</div>
+          <div class="imu-bars">
+            <div class="imu-row">
+              <span class="imu-label">aX:</span>
+              <div class="bar-track"><div id="barAx" class="bar-fill" style="width: 50%;"></div></div>
+              <span id="valAx" style="width: 50px; text-align: right;">0.00</span>
+            </div>
+            <div class="imu-row">
+              <span class="imu-label">aY:</span>
+              <div class="bar-track"><div id="barAy" class="bar-fill" style="width: 50%;"></div></div>
+              <span id="valAy" style="width: 50px; text-align: right;">0.00</span>
+            </div>
+            <div class="imu-row">
+              <span class="imu-label">aZ:</span>
+              <div class="bar-track"><div id="barAz" class="bar-fill" style="width: 60%; background: #10b981;"></div></div>
+              <span id="valAz" style="width: 50px; text-align: right;">9.81</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Generated Contract Events Table -->
+      <div class="card">
+        <div class="card-title">
+          <span>Generated Contract Events (v1)</span>
+          <span id="eventCountBadge" class="badge badge-bus">0 Events</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Type</th>
+                <th>Conf</th>
+                <th>Severity</th>
+                <th>Mode</th>
+                <th>Evidence</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+              <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 24px;">No events generated yet. Move bus or click "Trigger Pothole".</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evidence Snapshot Modal -->
+  <div class="modal" id="evidenceModal" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h4 id="modalTitle">Evidence Snapshot</h4>
+        <button onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImg" src="" alt="Evidence Frame" />
+        <div id="modalMeta" style="margin-top: 12px; font-size: 0.85rem; color: var(--muted); text-align: left;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    function initWebSocket() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      socket = new WebSocket(`${proto}//${window.location.host}/ws`);
+
+      socket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        updateDashboard(data);
+      };
+
+      socket.onclose = function() {
+        setTimeout(initWebSocket, 2000);
+      };
+    }
+
+    function updateDashboard(d) {
+      document.getElementById('busIdBadge').innerText = d.bus_id;
+      document.getElementById('clockDisplay').innerText = d.timestamp;
+
+      // Connectivity
+      const isOnline = d.connectivity_state === 'ONLINE';
+      const connBadge = document.getElementById('connBadge');
+      connBadge.className = isOnline ? 'badge badge-online' : 'badge badge-offline';
+      connBadge.innerText = d.connectivity_state;
+      document.getElementById('toggleConnBtn').innerText = isOnline ? 'Switch to OFFLINE' : 'Switch to ONLINE';
+
+      document.getElementById('transportMode').innerText = isOnline ? 'MQTT (Live)' : 'SQLite Outbox (Offline)';
+      document.getElementById('transportMode').style.color = isOnline ? 'var(--success)' : 'var(--warning)';
+
+      // Outbox count
+      document.getElementById('outboxPending').innerText = `${d.pending_outbox_count} PENDING`;
+      document.getElementById('replayBtn').innerText = `Replay Outbox (${d.pending_outbox_count})`;
+
+      // Tracks
+      document.getElementById('activeTracksLabel').innerText = `Active ByteTracks: ${d.active_tracks_count}`;
+
+      // Coordinates
+      document.getElementById('rawCoords').innerText = `${d.latitude.toFixed(6)}, ${d.longitude.toFixed(6)}`;
+      document.getElementById('snappedCoords').innerText = `${d.road_aligned_latitude.toFixed(6)}, ${d.road_aligned_longitude.toFixed(6)}`;
+      document.getElementById('headingSpeed').innerText = `Hdg: ${d.heading_degrees}° | ${d.speed_kmh} km/h`;
+      document.getElementById('routeLabel').innerText = d.route_id;
+
+      // IMU
+      if (d.imu) {
+        document.getElementById('valAx').innerText = d.imu.ax.toFixed(2);
+        document.getElementById('valAy').innerText = d.imu.ay.toFixed(2);
+        document.getElementById('valAz').innerText = d.imu.az.toFixed(2);
+
+        document.getElementById('barAx').style.width = Math.min(100, Math.max(0, 50 + d.imu.ax * 10)) + '%';
+        document.getElementById('barAy').style.width = Math.min(100, Math.max(0, 50 + d.imu.ay * 10)) + '%';
+        document.getElementById('barAz').style.width = Math.min(100, Math.max(0, (d.imu.az / 20) * 100)) + '%';
+
+        const shockBadge = document.getElementById('shockBadge');
+        shockBadge.style.display = d.imu.shock_detected ? 'inline-block' : 'none';
+      }
+
+      // Events Table
+      if (d.recent_events) {
+        document.getElementById('eventCountBadge').innerText = `${d.total_events} Events`;
+        renderEventsTable(d.recent_events);
+      }
+    }
+
+    function renderEventsTable(events) {
+      const tbody = document.getElementById('eventsTableBody');
+      if (!events || events.length === 0) return;
+
+      tbody.innerHTML = '';
+      events.forEach(evt => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => showEvidence(evt);
+        tr.innerHTML = `
+          <td><strong>${evt.event_id}</strong></td>
+          <td>${evt.event_type}</td>
+          <td>${(evt.confidence * 100).toFixed(0)}%</td>
+          <td><span class="tag tag-${evt.severity || 'MEDIUM'}">${evt.severity || 'MED'}</span></td>
+          <td><span style="font-size:0.75rem; color:${evt.connectivity_state === 'ONLINE' ? 'var(--success)' : 'var(--warning)'};">${evt.connectivity_state}</span></td>
+          <td><button style="padding:2px 8px; font-size:0.75rem;">View</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function showEvidence(evt) {
+      const modal = document.getElementById('evidenceModal');
+      const img = document.getElementById('modalImg');
+      const title = document.getElementById('modalTitle');
+      const meta = document.getElementById('modalMeta');
+
+      title.innerText = `Evidence: ${evt.event_id} (${evt.event_type})`;
+      // Load evidence via relative path mounted by FastAPI
+      img.src = `/${evt.evidence_image}`;
+      meta.innerHTML = `
+        <div><strong>Timestamp:</strong> ${evt.timestamp}</div>
+        <div><strong>Bus ID:</strong> ${evt.bus_id} | <strong>Route:</strong> ${evt.route_id || 'N/A'}</div>
+        <div><strong>Coordinates:</strong> ${evt.latitude}, ${evt.longitude} (Road-aligned: ${evt.road_aligned_latitude}, ${evt.road_aligned_longitude})</div>
+        <div><strong>Confidence:</strong> ${evt.confidence} | <strong>Severity:</strong> ${evt.severity} | <strong>State:</strong> ${evt.connectivity_state}</div>
+        <div><strong>Source:</strong> ${evt.source}</div>
+      `;
+      modal.classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('evidenceModal').classList.remove('open');
+    }
+
+    async function toggleConnectivity() {
+      await fetch('/api/toggle_connectivity', { method: 'POST' });
+    }
+
+    async function triggerPothole() {
+      await fetch('/api/trigger_defect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_name: 'POTHOLE' })
+      });
+    }
+
+    async function triggerShock() {
+      await fetch('/api/trigger_shock', { method: 'POST' });
+    }
+
+    async function replayOutbox() {
+      const res = await fetch('/api/replay', { method: 'POST' });
+      const d = await res.json();
+      alert(`Replayed ${d.replayed_count} events from SQLite WAL outbox!`);
+    }
+
+    async function togglePause() {
+      const res = await fetch('/api/toggle_pause', { method: 'POST' });
+      const d = await res.json();
+      document.getElementById('pauseBtn').innerText = d.is_paused ? 'Resume' : 'Pause';
+    }
+
+    initWebSocket();
+  </script>
+</body>
+</html>
