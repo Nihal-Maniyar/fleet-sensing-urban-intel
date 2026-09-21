@@ -4,12 +4,13 @@ This document locks shared names for the first prototype. Do not substitute loca
 
 ## Naming rules
 
-- IDs are strings: `bus_id`, `event_id`, `observation_id`, `incident_id`, `ticket_id`.
+- IDs are strings with one shared display format: `BUS-001`, `EVT-000001`, `OBS-000001`, `INC-000001`, `POT-YYYY-XXXXXX`, and `WO-YYYY-XXXXXX`.
+- The corresponding field names are `bus_id`, `event_id`, `observation_id`, `incident_id`, `ticket_id`, and `workorder_id`.
 - Timestamps use ISO 8601 UTC, for example `2026-09-20T10:30:00Z`.
 - Coordinates use WGS84 decimal degrees: `latitude`, `longitude`.
 - `confidence` is a number from `0.0` through `1.0`; severity is a separate derived field.
 - `evidence_image` is a storage URI/path, not embedded image bytes.
-- `event_type` values for the prototype are `POTHOLE`, `ROAD_DAMAGE`, `GARBAGE`, `WATERLOGGING`, `ILLEGAL_PARKING`, `VEHICLE`, and `PERSON`. Add new values through a contract change.
+- Initial candidate `event_type` values are `POTHOLE`, `GARBAGE`, `TRAFFIC_OBSTRUCTION`, and `PEDESTRIAN_RISK`. Add new values through a contract change.
 - `source` identifies `actual_bus_simulator`, `data_demo_simulator`, or a future real edge device.
 - Original GNSS coordinates and road-aligned coordinates are separate facts. The latter may be produced by map matching.
 
@@ -17,7 +18,7 @@ This document locks shared names for the first prototype. Do not substitute loca
 
 ```json
 {
-  "event_id": "evt_01J...",
+  "event_id": "EVT-000001",
   "bus_id": "BUS-001",
   "event_type": "POTHOLE",
   "timestamp": "2026-09-20T10:30:00Z",
@@ -29,7 +30,7 @@ This document locks shared names for the first prototype. Do not substitute loca
   "route_id": "ROUTE-A",
   "confidence": 0.91,
   "severity": "HIGH",
-  "evidence_image": "evidence://BUS-001/evt_01J.jpg",
+  "evidence_image": "runtime/evidence/EVT-000001.jpg",
   "source": "data_demo_simulator",
   "connectivity_state": "ONLINE"
 }
@@ -43,8 +44,8 @@ An observation is the persisted representation of one received event. It retains
 
 ```json
 {
-  "observation_id": "obs_01J...",
-  "event_id": "evt_01J...",
+  "observation_id": "OBS-000001",
+  "event_id": "EVT-000001",
   "bus_id": "BUS-001",
   "event_type": "POTHOLE",
   "timestamp": "2026-09-20T10:30:00Z",
@@ -52,7 +53,7 @@ An observation is the persisted representation of one received event. It retains
   "longitude": 73.8567,
   "confidence": 0.91,
   "severity": "HIGH",
-  "evidence_image": "evidence://BUS-001/evt_01J.jpg",
+  "evidence_image": "runtime/evidence/EVT-000001.jpg",
   "road_aligned_latitude": 18.5203,
   "road_aligned_longitude": 73.8568
 }
@@ -62,7 +63,7 @@ An observation is the persisted representation of one received event. It retains
 
 ```json
 {
-  "incident_id": "inc_01J...",
+  "incident_id": "INC-000001",
   "event_type": "POTHOLE",
   "status": "CANDIDATE",
   "latitude": 18.5203,
@@ -84,14 +85,22 @@ Allowed initial incident statuses: `CANDIDATE`, `VERIFIED`, `REJECTED`, `RESOLUT
 ```json
 {
   "ticket_id": "POT-2026-000001",
-  "incident_id": "inc_01J...",
-  "status": "OPEN",
+  "incident_id": "INC-000001",
+  "workorder_id": "WO-2026-000001",
+  "event_type": "POTHOLE",
+  "confidence": 0.93,
+  "latitude": 18.5203,
+  "longitude": 73.8568,
+  "evidence_image": "runtime/evidence/EVT-000001.jpg",
+  "google_maps_url": "https://www.google.com/maps/dir/?api=1&destination=18.5203,73.8568",
+  "estimated_repair_sla_hours": 48,
+  "status": "REPORTED",
   "created_at": "2026-09-20T10:36:00Z",
   "updated_at": "2026-09-20T10:36:00Z"
 }
 ```
 
-Allowed initial ticket statuses: `OPEN`, `ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`, `REJECTED`. Format: `POT-YYYY-XXXXXX`, with a six-digit sequence. Department routing is derived from event type and remains reviewable by an authority user.
+The official ticket statuses are `REPORTED`, `ACKNOWLEDGED`, `IN_PROGRESS`, and `RESOLVED`; do not create alternate lifecycle status names. Format: `POT-YYYY-XXXXXX`, with a six-digit sequence. Department routing is derived from event type and remains reviewable by an authority user. `workorder_id` is assigned after acknowledgement when a prototype work-order handoff is created.
 
 ## Severity
 

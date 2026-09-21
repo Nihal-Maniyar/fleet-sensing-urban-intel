@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  repository-contracts:
+    name: Repository contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify project foundation
+        run: |
+          test -f README.md
+          test -f AGENTS.md
+          test -f .env.example
+          test -f .gitignore
+          test -f docs/architecture.md
+          test -f docs/api-contract.md
+          test -f docs/development.md
+
+  python-tests:
+    name: Python tests (when configured)
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('backend/requirements*.txt', 'backend/pyproject.toml') != '' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
+          python -m pip install pytest
+
+      - name: Run tests when present
+        run: |
+          if [ -d backend/tests ] || [ -d tests ]; then pytest; else echo "No Python tests yet"; fi
+
+  data-demo-simulator-tests:
+    name: Data/demo simulator tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: data-demo-simulator
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: data-demo-simulator/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run simulator tests
+        run: python -m unittest discover -s tests -q
+
+  dashboard-build:
+    name: Dashboard build (when configured)
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('dashboard/package-lock.json') != '' }}
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build dashboard
+        run: npm run build
