@@ -1,0 +1,25 @@
+name: beyonders
+
+# Infrastructure-only local scaffold. Application containers are added once the
+# backend and dashboard have actual build definitions.
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-beyonders}
+      POSTGRES_USER: ${POSTGRES_USER:-beyonders}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+volumes:
+  postgis_data:

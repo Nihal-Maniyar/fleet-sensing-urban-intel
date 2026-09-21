@@ -1,0 +1,16 @@
+# Database Plan
+
+Use PostgreSQL with PostGIS for operational and geographic data. TimescaleDB may be enabled later for high-volume telemetry/time-series retention, but it is not required for the first vertical slice. This is a plan, not a migration or schema implementation.
+
+Initial logical records:
+
+- `buses`: stable bus identity and optional route metadata.
+- `events`: immutable received payload, source, ingestion state, and idempotency identity.
+- `observations`: normalized events with original and road-aligned geographic points, evidence reference, event identity, severity, and sensor metadata.
+- `incidents`: fusion result, map location, aggregate confidence, severity, department, status, and timestamps.
+- `incident_observations`: relationship preserving the evidence trail.
+- `tickets`: civic ticket identifier, incident relation, department, and lifecycle history.
+- `ticket_status_history`: append-only status transitions and authority notes.
+- `edge_outbox` (optional edge-side SQLite): queued events, retry count, and synchronization state.
+
+Store original coordinates and road-aligned coordinates separately; never silently replace one with the other. Preserve evidence references and event IDs for replay/idempotency. Use spatial points and indexes once a migration is approved. All migrations must be ordered, reversible where practical, and reviewed by Group 2 and Group 3.
