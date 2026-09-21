@@ -10,6 +10,7 @@
 - FastAPI, PostgreSQL/PostGIS, HMM-based map matching (Valhalla/OSRM-compatible), fleet fusion, and a React/Leaflet map.
 - Explainable severity/prioritization, authority routing, incident verification, and civic tickets using `POT-YYYY-XXXXXX`.
 - Continued observations that can provide resolution evidence after repair.
+- A work-order handoff after ticket assignment, represented as a lifecycle step rather than a municipal-system integration.
 
 ## Out of scope for the first vertical slice
 
@@ -26,3 +27,7 @@
 5. **Fleet value:** multiple buses → map matching → ST-DBSCAN/Bayesian fusion → verified incident → severity → ticket.
 6. **Resolution:** later bus observations provide evidence that the issue is resolved; the authority lifecycle remains auditable.
 7. **Demo hardening:** repeatable scenarios, seeded routes/events, and a clear operator view.
+
+## Geographic demonstration rule
+
+The main GIS scenario must use realistic road-aligned coordinates and routes. Pune roads are the default demonstration geography. Random points may be used only for isolated tests, never as the principal judge-facing map story.
