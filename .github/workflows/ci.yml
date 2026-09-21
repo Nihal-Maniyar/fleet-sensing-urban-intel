@@ -5,32 +5,62 @@ on:
     branches: [main, develop]
   push:
     branches: [main, develop]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   repository-contracts:
-    name: Repository contracts
+    name: Repository contracts & hygiene
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Verify project foundation
+      - name: Verify project foundation and core documentation
         run: |
           test -f README.md
           test -f AGENTS.md
           test -f .env.example
           test -f .gitignore
+          test -f docker-compose.yml
           test -f docs/architecture.md
           test -f docs/api-contract.md
           test -f docs/development.md
+          test -f docs/data-flow.md
+          test -f docs/database.md
+          test -f docs/simulators.md
+          test -f docs/prototype-scope.md
+          test -f docs/demo.md
+          test -f docs/ticket-lifecycle.md
+          test -f docs/fleet-fusion.md
+
+      - name: Validate Docker Compose infrastructure syntax
+        run: |
+          docker compose -f docker-compose.yml config
+
+      - name: Verify git hygiene (no secrets or large binary weights)
+        run: |
+          # Ensure no active secrets files were tracked
+          if git ls-files | grep -E '^\.env$'; then
+            echo "ERROR: Tracked .env secret file found in repository!"
+            exit 1
+          fi
+          # Ensure no heavy binary weights/checkpoints were committed
+          if git ls-files | grep -E '\.(pt|onnx|weights|bin)$'; then
+            echo "ERROR: Large model weights found committed in repository!"
+            exit 1
+          fi
+          # Ensure no temporary database runtime files were committed
+          if git ls-files | grep -E '\.(sqlite|sqlite-wal|sqlite-shm)$'; then
+            echo "ERROR: SQLite database file found committed in repository!"
+            exit 1
+          fi
 
   python-tests:
-    name: Python tests (when configured)
+    name: Backend, Database & Integration Tests
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('backend/requirements*.txt', 'backend/pyproject.toml') != '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -39,18 +69,55 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements*.txt
+            database/requirements.txt
+            data-demo-simulator/requirements.txt
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
           if [ -f database/requirements.txt ]; then pip install -r database/requirements.txt; fi
+          if [ -f data-demo-simulator/requirements.txt ]; then pip install -r data-demo-simulator/requirements.txt; fi
           if [ -f backend/requirements-dev.txt ]; then pip install -r backend/requirements-dev.txt; fi
-          python -m pip install pytest
+          python -m pip install pytest httpx
 
-      - name: Run tests when present
+      - name: Verify database migrations head
         run: |
-          if [ -d backend/tests ] || [ -d tests ]; then pytest; else echo "No Python tests yet"; fi
+          alembic -c alembic.ini heads
+
+      - name: Run backend & integration test suite
+        run: |
+          pytest -v --tb=short tests backend/tests
+
+  demo-runner-verification:
+    name: Repeatable Demo Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements*.txt
+            data-demo-simulator/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          if [ -f data-demo-simulator/requirements.txt ]; then pip install -r data-demo-simulator/requirements.txt; fi
+          python -m pip install httpx
+
+      - name: Run automated 5-step demonstration story
+        run: |
+          python scripts/run_demo.py --delay 0.0
 
   data-demo-simulator-tests:
     name: Data/demo simulator tests
@@ -70,9 +137,11 @@ jobs:
           cache-dependency-path: data-demo-simulator/requirements.txt
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-      - name: Run simulator tests
+      - name: Run simulator unit tests
         run: python -m unittest discover -s tests -q
 
   actual-bus-simulator-tests:
@@ -93,9 +162,11 @@ jobs:
           cache-dependency-path: bus-simulator/requirements.txt
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-      - name: Run simulator tests
+      - name: Run simulator unit tests
         run: python -m unittest discover -s tests -q
 
   dashboard-build:

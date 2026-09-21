@@ -20,11 +20,14 @@ try:
     from evidence.capture import capture_evidence_image
     from tracking.byte_tracker import STrack
     from events.schema import Event
-except ImportError:
-    from ..detection.interface import Detection
-    from ..evidence.capture import capture_evidence_image
-    from ..tracking.byte_tracker import STrack
-    from .schema import Event
+except (ImportError, ValueError) as err:
+    try:
+        from ..detection.interface import Detection
+        from ..evidence.capture import capture_evidence_image
+        from ..tracking.byte_tracker import STrack
+        from .schema import Event
+    except (ImportError, ValueError):
+        raise err
 
 logger = logging.getLogger("actual_bus_simulator.events")
 
