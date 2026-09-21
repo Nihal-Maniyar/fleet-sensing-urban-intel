@@ -34,7 +34,7 @@ SQLite/WAL queue (offline) ─────── MQTT/store-and-forward ──�
                                       ↓
                          PostgreSQL + PostGIS storage
                                       ↓
-      map matching + ST-DBSCAN + Bayesian evidence update
+       road alignment + configurable spatial-temporal fleet fusion
                                       ↓
        incident/severity → department ticket → React/Leaflet GIS
                                       ↓
@@ -47,11 +47,19 @@ Read [architecture.md](docs/architecture.md) and [api-contract.md](docs/api-cont
 
 | Area | Purpose now | Primary pair |
 | --- | --- | --- |
-| `ai/`, `edge/`, `bus-simulator/` | Future camera, YOLO, ByteTrack, GNSS/IMU, offline queue, and event work | Group 1 — Members 1 & 2 |
-| `data-demo-simulator/`, `backend/`, `database/` | Demo data, MQTT/API ingestion, and PostGIS foundation | Group 2 — Members 3 & 4 |
-| `fusion/`, `dashboard/` | Incident fusion, ticket lifecycle, and GIS UI | Group 3 — Members 5 & 6 |
+| `ai/`, `edge/`, `bus-simulator/` | Future camera, YOLO, ByteTrack, GNSS/IMU, offline queue, and event work | Group 1 — Member 1 (AI/ML) and Member 2 (Edge/Bus Simulator) |
+| `backend/`, `database/`, `fusion/` | API ingestion, PostGIS foundation, incident fusion, and resolution policy | Group 2 — Member 3 (Backend) and Member 4 (Database/Fusion) |
+| `dashboard/`, `data-demo-simulator/`, `scripts/` | GIS UI, deterministic demo data, CI, and integration environment | Group 3 — Member 5 (GIS) and Member 6 (Integration/DevOps) |
 
 This grouping establishes shared ownership; exact member assignments can be recorded in issues.
+
+## Prototype stack
+
+- Edge/AI: Python, OpenCV, YOLO, ByteTrack, and ONNX; TensorRT is optional later.
+- Edge transport: MQTT/Mosquitto with SQLite buffering where connectivity is unavailable.
+- Central platform: FastAPI, Pydantic, SQLAlchemy, PostgreSQL, and PostGIS.
+- GIS: React, Vite, Leaflet, and OpenStreetMap.
+- Development: Docker Compose, GitHub Actions, GitHub Issues, and pull requests.
 
 ## Start here
 
@@ -80,3 +88,4 @@ There is no model, inference pipeline, backend API, database schema, dashboard a
 - [Ticket lifecycle](docs/ticket-lifecycle.md)
 - [Development workflow](docs/development.md)
 - [Demo plan](docs/demo.md)
+- [Team task briefs](docs/team-tasks/README.md)
