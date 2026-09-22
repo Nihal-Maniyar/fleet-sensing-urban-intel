@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
 import os
 
 # Optional database integration: if DATABASE_URL is set and the database
@@ -411,6 +412,12 @@ def get_ticket_map(ticket_id: str):
         "google_maps_url": google_maps_url,
     }
 
+
+# Serve a simple GIS dashboard for the end-to-end demo flow.
+project_root = Path(__file__).resolve().parents[2]
+dashboard_dir = project_root / "dashboard"
+if dashboard_dir.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(dashboard_dir), html=True), name="dashboard")
 
 # Mount routes at root and with /api/v1 prefix
 app.include_router(api_router)

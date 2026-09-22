@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beyonders Urban Intelligence</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --card: #0b1220;
+        --muted: #94a3b8;
+        --text: #e5e7eb;
+        --accent: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #60a5fa;
+        --border: rgba(148, 163, 184, 0.2);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: linear-gradient(180deg, var(--bg), #020817);
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, sans-serif;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(8px);
+      }
+
+      .title {
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-left: 0.75rem;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        min-height: calc(100vh - 72px);
+      }
+
+      .sidebar {
+        border-right: 1px solid var(--border);
+        background: rgba(17, 24, 39, 0.9);
+        padding: 1rem;
+      }
+
+      .panel {
+        background: rgba(11, 18, 32, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0.9rem;
+        margin-bottom: 1rem;
+      }
+
+      .panel h3 {
+        margin: 0 0 0.75rem 0;
+        font-size: 0.9rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .kpi {
+        background: rgba(31, 41, 55, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.8rem;
+      }
+
+      .kpi .label {
+        display: block;
+        color: var(--muted);
+        font-size: 0.72rem;
+        margin-bottom: 0.35rem;
+      }
+
+      .kpi .value {
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .list li {
+        padding: 0.7rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-bottom: 0.6rem;
+        background: rgba(15, 23, 42, 0.7);
+      }
+
+      .list strong {
+        display: block;
+        margin-bottom: 0.2rem;
+      }
+
+      .content {
+        padding: 1rem;
+      }
+
+      #incidentMap {
+        height: 64vh;
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .status.candidate { background: rgba(96, 165, 250, 0.2); color: #93c5fd; }
+      .status.verified { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+      .status.resolution_candidate { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+      .status.resolved { background: rgba(59, 130, 246, 0.2); color: #bfdbfe; }
+      .status.rejected { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        margin-top: 0.8rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      @media (max-width: 920px) {
+        .layout { grid-template-columns: 1fr; }
+        .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <span class="title">Beyonders Urban Intelligence</span>
+        <span class="subtitle">Fleet sensing dashboard</span>
+      </div>
+      <div class="status candidate">Prototype</div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <section class="panel">
+          <h3>Live summary</h3>
+          <div class="kpis">
+            <div class="kpi">
+              <span class="label">Incidents</span>
+              <span class="value" id="incidentCount">0</span>
+            </div>
+            <div class="kpi">
+              <span class="label">Tickets</span>
+              <span class="value" id="ticketCount">0</span>
+            </div>
+            <div class="kpi">
+              <span class="label">Observations</span>
+              <span class="value" id="obsCount">0</span>
+            </div>
+            <div class="kpi">
+              <span class="label">Status</span>
+              <span class="value" id="statusSummary">OK</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Latest incidents</h3>
+          <ul id="incidentList" class="list"></ul>
+        </section>
+      </aside>
+
+      <section class="content">
+        <div id="incidentMap" aria-label="incident map"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:#60a5fa"></i> Candidate</span>
+          <span><i class="dot" style="background:#22c55e"></i> Verified</span>
+          <span><i class="dot" style="background:#f59e0b"></i> Resolution candidate</span>
+          <span><i class="dot" style="background:#ef4444"></i> Rejected</span>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script>
+      const map = L.map('incidentMap').setView([18.5204, 73.8567], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const statusColors = {
+        CANDIDATE: '#60a5fa',
+        VERIFIED: '#22c55e',
+        RESOLUTION_CANDIDATE: '#f59e0b',
+        RESOLVED: '#3b82f6',
+        REJECTED: '#ef4444'
+      };
+
+      function setSummary(incidents, tickets, observations) {
+        document.getElementById('incidentCount').textContent = incidents.length;
+        document.getElementById('ticketCount').textContent = tickets.length;
+        document.getElementById('obsCount').textContent = observations.length;
+        document.getElementById('statusSummary').textContent = incidents.length ? 'LIVE' : 'IDLE';
+      }
+
+      function renderIncidentList(items) {
+        const list = document.getElementById('incidentList');
+        list.innerHTML = '';
+
+        if (!items.length) {
+          list.innerHTML = '<li><strong>No incidents yet</strong>Feed the simulator or ingest an event to populate the map.</li>';
+          return;
+        }
+
+        items.slice(0, 5).forEach(item => {
+          const li = document.createElement('li');
+          const status = document.createElement('span');
+          status.className = `status ${item.status.toLowerCase()}`;
+          status.textContent = item.status;
+
+          const title = document.createElement('strong');
+          title.textContent = `${item.event_type} · ${item.incident_id}`;
+
+          const details = document.createElement('div');
+          details.textContent = `${item.observation_count} obs · confidence ${Number(item.confidence).toFixed(2)} · ${item.department}`;
+
+          li.appendChild(title);
+          li.appendChild(status);
+          li.appendChild(details);
+          list.appendChild(li);
+        });
+      }
+
+      function renderMap(incidents) {
+        map.eachLayer(layer => {
+          if (layer instanceof L.Marker || layer instanceof L.CircleMarker) {
+            map.removeLayer(layer);
+          }
+        });
+
+        incidents.forEach(incident => {
+          const lat = Number(incident.latitude);
+          const lng = Number(incident.longitude);
+          const marker = L.circleMarker([lat, lng], {
+            radius: 10,
+            color: statusColors[incident.status] || '#60a5fa',
+            fillColor: statusColors[incident.status] || '#60a5fa',
+            fillOpacity: 0.8,
+            weight: 2
+          }).addTo(map);
+
+          marker.bindPopup(`
+            <strong>${incident.incident_id}</strong><br>
+            ${incident.event_type}<br>
+            Status: ${incident.status}<br>
+            Confidence: ${Number(incident.confidence).toFixed(2)}<br>
+            Observations: ${incident.observation_count}<br>
+            Buses: ${incident.bus_count}
+          `);
+        });
+
+        if (incidents.length) {
+          const first = incidents[0];
+          map.setView([Number(first.latitude), Number(first.longitude)], 13);
+        }
+      }
+
+      async function refreshDashboard() {
+        try {
+          const [incidentsResp, ticketsResp, observationsResp] = await Promise.all([
+            fetch('/incidents').then(r => r.json()),
+            fetch('/tickets').then(r => r.json()),
+            fetch('/observations').then(r => r.json())
+          ]);
+
+          const incidents = incidentsResp.incidents || [];
+          const tickets = ticketsResp.tickets || [];
+          const observations = observationsResp.observations || [];
+
+          setSummary(incidents, tickets, observations);
+          renderIncidentList(incidents);
+          renderMap(incidents);
+        } catch (error) {
+          console.error('Dashboard refresh failed:', error);
+          document.getElementById('statusSummary').textContent = 'ERR';
+        }
+      }
+
+      refreshDashboard();
+      setInterval(refreshDashboard, 15000);
+    </script>
+  </body>
+</html>
