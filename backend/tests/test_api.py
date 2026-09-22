@@ -241,3 +241,12 @@ def test_simulator_scenario_ingestion(client):
     assert list_obs.status_code == 200
     assert list_obs.json()["count"] == len(events)
 
+
+def test_dashboard_page_is_served(client):
+    """The backend serves a simple GIS dashboard page for end-to-end demo viewing."""
+    response = client.get("/dashboard")
+    assert response.status_code == 200
+    html = response.text
+    assert "Beyonders Urban Intelligence" in html
+    assert "Leaflet" in html or "incidentMap" in html
+

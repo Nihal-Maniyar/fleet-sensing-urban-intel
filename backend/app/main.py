@@ -6,6 +6,20 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Optional database integration: if DATABASE_URL is set and the database
+# package is importable, use the DB-backed ingestion flow which persists
+# observations and runs fleet fusion. Otherwise continue using the in-memory
+# prototype storage to avoid breaking existing tests and demos.
+try:
+    from database.connection import db_session
+    from database.operations import insert_event_idempotent, create_observation
+    from database.fusion import fuse_observation
+    DB_AVAILABLE = True
+except Exception:
+    DB_AVAILABLE = False
 
 # Handle imports whether launched from root or backend directory
 try:
@@ -123,8 +137,66 @@ def ingest_event(event: Event):
     Replaying an existing event_id does not create a second record.
     The stored event and associated observation are immutable for this prototype.
     """
+    # If a real database is available and configured via DATABASE_URL,
+    # use the DB-backed flow: persist event, create observation, run fusion.
     incoming = event_to_storage(event)
 
+    if DB_AVAILABLE and os.environ.get("DATABASE_URL"):
+        try:
+            with db_session() as db:
+                evt, created = insert_event_idempotent(db, event)
+
+                # If event already exists, verify payload equality for idempotent replay
+                if not created:
+                    # For DB-backed flow we return the existing record summary
+                    return {
+                        "message": "Duplicate event ignored (idempotent replay)",
+                        "event_id": event.event_id,
+                        "duplicate": True,
+                        "event": {"event_id": evt.event_id},
+                    }
+
+                # Persist normalized observation using DB operations
+                seq = event.event_id.split("-")[-1]
+                obs_id = f"OBS-{seq}"
+                obs = create_observation(
+                    db,
+                    observation_id=obs_id,
+                    event_id=event.event_id,
+                    bus_id=event.bus_id,
+                    event_type=event.event_type,
+                    timestamp=event.timestamp,
+                    latitude=event.latitude,
+                    longitude=event.longitude,
+                    road_aligned_latitude=event.road_aligned_latitude,
+                    road_aligned_longitude=event.road_aligned_longitude,
+                    confidence=event.confidence,
+                    evidence_image=event.evidence_image,
+                    severity=event.severity,
+                    heading_degrees=event.heading_degrees if hasattr(event, "heading_degrees") else None,
+                )
+
+                # Run fleet fusion on the newly created observation
+                fused = fuse_observation(db, obs)
+
+                resp = {
+                    "message": "Event accepted",
+                    "event_id": event.event_id,
+                    "duplicate": False,
+                    "event": {"event_id": evt.event_id},
+                }
+                if fused is not None:
+                    inc, inc_created = fused
+                    resp["fusion"] = {"incident_id": inc.incident_id, "created": inc_created}
+
+                return resp
+        except HTTPException:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            # If DB path fails for any reason, return a 500 to signal the issue.
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+    # Fallback prototype in-memory flow (unchanged)
     if event.event_id in events_by_id:
         existing = events_by_id[event.event_id]
 
@@ -340,6 +412,12 @@ def get_ticket_map(ticket_id: str):
         "google_maps_url": google_maps_url,
     }
 
+
+# Serve a simple GIS dashboard for the end-to-end demo flow.
+project_root = Path(__file__).resolve().parents[2]
+dashboard_dir = project_root / "dashboard"
+if dashboard_dir.exists():
+    app.mount("/dashboard", StaticFiles(directory=str(dashboard_dir), html=True), name="dashboard")
 
 # Mount routes at root and with /api/v1 prefix
 app.include_router(api_router)
