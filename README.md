@@ -2,25 +2,11 @@
 
 AI-Powered Mobile Urban Intelligence Platform — SIH 2026 prototype.
 
-The prototype uses buses as mobile sensing units to identify civic-road and safety events, attach evidence and road-aligned location data, combine observations from the fleet, and show prioritized incidents and their civic-ticket progress on a map.
+The prototype uses city transit buses as mobile sensing units to identify civic-road and safety defects, attach evidence and road-aligned location data, combine observations across the fleet, and display prioritized incidents and civic-ticket progress on a real-time GIS map.
 
-## Prototype outcome
+---
 
-The first reliable vertical slice is:
-
-```text
-Data/Test/Demo Simulator → MQTT → FastAPI → PostgreSQL/PostGIS → GIS dashboard
-```
-
-Then connect the actual bus path and offline behavior:
-
-```text
-Camera/video → YOLO + ByteTrack → evidence image + GNSS/GPS/IMU → SQLite/WAL queue → MQTT → same backend flow
-```
-
-Multiple independent observations can be fused into one verified incident, prioritized, routed to a department, and tracked with a ticket such as `POT-2026-000001` until resolution is verified.
-
-## Architecture
+## Prototype Data Flow
 
 ```text
 Actual Bus Simulator                         Data/Test/Demo Simulator
@@ -36,44 +22,91 @@ SQLite/WAL queue (offline) ─────── MQTT/store-and-forward ──�
                                       ↓
        road alignment + configurable spatial-temporal fleet fusion
                                       ↓
-       incident/severity → department ticket → React/Leaflet GIS
+       incident/severity → department ticket → Real-time Leaflet GIS Dashboard
                                       ↓
                     continued bus observations → resolution check
 ```
 
-Read [architecture.md](docs/architecture.md) and [api-contract.md](docs/api-contract.md) before implementing a component.
+---
 
-## Repository map
+## Quickstart: Run the Complete Prototype
 
-| Area | Purpose now | Primary pair |
-| --- | --- | --- |
-| `ai/`, `edge/`, `bus-simulator/` | Future camera, YOLO, ByteTrack, GNSS/IMU, offline queue, and event work | Group 1 — Member 1 (AI/ML) and Member 2 (Edge/Bus Simulator) |
-| `backend/`, `database/`, `fusion/` | API ingestion, PostGIS foundation, incident fusion, and resolution policy | Group 2 — Member 3 (Backend) and Member 4 (Database/Fusion) |
-| `dashboard/`, `data-demo-simulator/`, `scripts/` | GIS UI, deterministic demo data, CI, and integration environment | Group 3 — Member 5 (GIS) and Member 6 (Integration/DevOps) |
+Run the unified prototype launcher with a single command:
 
-This grouping establishes shared ownership; exact member assignments can be recorded in issues.
+```bash
+# 1. Activate virtual environment
+source .venv/bin/activate
 
-## Prototype stack
+# 2. Launch prototype (boots backend, seeds Pune corridor data, opens GIS dashboard)
+python3 scripts/run_prototype.py
+```
 
-- Edge/AI: Python, OpenCV, YOLO, ByteTrack, and ONNX; TensorRT is optional later.
-- Edge transport: MQTT/Mosquitto with SQLite buffering where connectivity is unavailable.
-- Central platform: FastAPI, Pydantic, SQLAlchemy, PostgreSQL, and PostGIS.
-- GIS: React, Vite, Leaflet, and OpenStreetMap.
-- Development: Docker Compose, GitHub Actions, GitHub Issues, and pull requests.
+- **Real GIS Operations Dashboard**: [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
+- **Interactive Swagger API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Health Check Endpoint**: [http://localhost:8000/health](http://localhost:8000/health)
 
-## Start here
+---
 
-1. Read [prototype-scope.md](docs/prototype-scope.md), [architecture.md](docs/architecture.md), and [api-contract.md](docs/api-contract.md).
-2. Copy `.env.example` to `.env` and fill in local values when services are introduced. Do not commit `.env`.
-3. Create a small GitHub Issue with acceptance criteria.
-4. Branch from `develop` using `feature/…`, `fix/…`, `docs/…`, or `test/…`.
-5. Open a pull request to `develop`; CI and a teammate review it.
+## Running & Testing Individual Components
 
-The intended branch flow is `feature/* → develop → main`. `main` must remain demo-ready.
+### 1. Central Backend & GIS Engine (`backend/`)
+```bash
+uvicorn backend.app.main:app --reload --port 8000
+```
+- Test backend: `pytest backend/tests -v`
 
-## What is intentionally not implemented
+### 2. Real GIS Operations Dashboard (`dashboard/`)
+- When backend is running, open [http://localhost:8000/dashboard](http://localhost:8000/dashboard).
+- Leaflet.js real OpenStreetMap tiles, Pune transit corridors (FC Road, JM Road, Karve Road, Shivaji Road), defect pins with pulsing alert rings, live bus fleet positions, and direct ticket lifecycle management.
+- Test dashboard integration: `pytest tests/test_dashboard_integration.py -v`
 
-There is no model, inference pipeline, backend API, database schema, dashboard application, or production deployment in this initial commit. The architecture and contracts describe the intended prototype; implementation thresholds and service APIs must be approved through documented issues and pull requests.
+### 3. Data/Test/Demo Simulator (`data-demo-simulator/`)
+Deterministic, contract-valid synthetic Pune transit events:
+```bash
+# Run dual-bus pothole corroboration scenario
+python3 data-demo-simulator/main.py --scenario dual_bus_pothole
+
+# Stream master demo directly into backend over HTTP
+python3 data-demo-simulator/main.py --scenario master_demo --mode http --http-url http://localhost:8000/api/v1/events --delay 0.5
+```
+- Test data simulator: `python3 -m unittest discover -s data-demo-simulator/tests -q`
+
+### 4. Actual Bus Simulator (`bus-simulator/`)
+Edge AI computer vision sensing pipeline (YOLO + ByteTrack + 6-DOF IMU + SQLite/WAL):
+```bash
+# Launch Bus 1 on FC Road (Web UI on port 8001):
+python3 bus-simulator/main.py --bus-id BUS-001 --route ROUTE-PUNE-FC --port 8001
+
+# Launch Bus 2 simultaneously on JM Road (Web UI on port 8002):
+python3 bus-simulator/main.py --bus-id BUS-002 --route ROUTE-PUNE-JM --port 8002
+```
+- Test bus simulator: `python3 -m unittest discover -s bus-simulator/tests -q`
+
+### 5. Automated 5-Step Demo Runner (`scripts/run_demo.py`)
+```bash
+python3 scripts/run_demo.py --delay 0.5
+```
+
+---
+
+## Complete Test Suite Execution
+
+Run all 59+ unit and integration tests across all repository components:
+```bash
+pytest -v
+```
+
+---
+
+## Repository Map
+
+| Area | Component | Primary Owner |
+|---|---|---|
+| `bus-simulator/` | YOLO detection, ByteTrack tracking, GNSS/IMU coupling, SQLite/WAL queue | Group 1 — Member 1 (AI/ML) and Member 2 (Edge/Bus Simulator) |
+| `backend/`, `database/` | FastAPI endpoints, PostGIS spatial models, Alembic migrations, ticket lifecycle | Group 2 — Member 3 (Backend) and Member 4 (Database/Fusion) |
+| `dashboard/`, `data-demo-simulator/`, `scripts/` | Real Leaflet GIS UI, demo simulator, CI/CD, and prototype launcher | Group 3 — Member 5 (GIS Dashboard) and Member 6 (DevOps/Integration) |
+
+---
 
 ## Documentation
 

@@ -3,9 +3,10 @@
 from datetime import datetime, timezone
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse
 
 # Handle imports whether launched from root or backend directory
 try:
@@ -37,18 +38,88 @@ except ImportError:
 app = FastAPI(
     title="Fleet Sensing Urban Intelligence - Backend",
     version="1.0.0",
-    description="FastAPI service for contract-valid event ingestion, observations, incidents, and civic ticket lifecycle.",
+    description="FastAPI service for contract-valid event ingestion, observations, incidents, civic ticket lifecycle, and GIS layers.",
 )
 
 # ---------------------------------------------------------------------------
 # Prototype in-memory storage
 # ---------------------------------------------------------------------------
-# In-memory storage for prototype integration.
-# Future milestone attaches PostgreSQL/PostGIS at this boundary.
 events_by_id: dict[str, dict] = {}
 observations_by_id: dict[str, dict] = {}
 incidents_by_id: dict[str, dict] = {}
 tickets_by_id: dict[str, dict] = {}
+buses_by_id: dict[str, dict] = {}
+
+
+# ---------------------------------------------------------------------------
+# Authentic Pune Transit Corridors (GIS reference)
+# ---------------------------------------------------------------------------
+PUNE_CORRIDORS: List[Dict[str, Any]] = [
+    {
+        "route_id": "ROUTE-PUNE-FC",
+        "name": "FC Road Corridor",
+        "description": "Fergusson College Road from Deccan Gymkhana to Agriculture College",
+        "color": "#1C6E8C",
+        "waypoints": [
+            {"name": "Deccan Gymkhana Bus Stop", "lat": 18.5158, "lng": 73.8418},
+            {"name": "Goodluck Chowk (Pothole Demo Hotspot)", "lat": 18.5196, "lng": 73.8436},
+            {"name": "Fergusson College Main Gate", "lat": 18.5235, "lng": 73.8415},
+            {"name": "Dnyaneshwar Paduka Chowk", "lat": 18.5278, "lng": 73.8424},
+            {"name": "Agriculture College / Shivajinagar", "lat": 18.5320, "lng": 73.8450},
+        ],
+    },
+    {
+        "route_id": "ROUTE-PUNE-JM",
+        "name": "JM Road Corridor",
+        "description": "Jangali Maharaj Road north-bound transit corridor",
+        "color": "#2E7D53",
+        "waypoints": [
+            {"name": "Balgandharva Rangmandir", "lat": 18.5222, "lng": 73.8493},
+            {"name": "Sambhaji Park Crossing", "lat": 18.5255, "lng": 73.8500},
+            {"name": "Modern High School", "lat": 18.5280, "lng": 73.8510},
+            {"name": "Sancheti Hospital Chowk", "lat": 18.5325, "lng": 73.8525},
+        ],
+    },
+    {
+        "route_id": "ROUTE-PUNE-KARVE",
+        "name": "Karve Road Corridor",
+        "description": "Karve Road arterial corridor towards Kothrud",
+        "color": "#CC7A2E",
+        "waypoints": [
+            {"name": "Deccan Corner / Lakdi Pul", "lat": 18.5135, "lng": 73.8385},
+            {"name": "Garware College", "lat": 18.5110, "lng": 73.8325},
+            {"name": "Nal Stop (Tunnel/Offline Test Zone)", "lat": 18.5085, "lng": 73.8268},
+            {"name": "Paud Phata", "lat": 18.5060, "lng": 73.8210},
+        ],
+    },
+    {
+        "route_id": "ROUTE-PUNE-SHIVAJI",
+        "name": "Swargate to PMC Central Corridor",
+        "description": "Shivaji Road crossing central Pune historical core to PMC HQ",
+        "color": "#5B3FA8",
+        "waypoints": [
+            {"name": "Swargate Bus Station", "lat": 18.5018, "lng": 73.8580},
+            {"name": "Dagdusheth Ganpati", "lat": 18.5165, "lng": 73.8562},
+            {"name": "Pune Municipal Corporation (PMC)", "lat": 18.5218, "lng": 73.8540},
+            {"name": "Shivajinagar Railway Station", "lat": 18.5328, "lng": 73.8550},
+        ],
+    },
+]
+
+
+def init_default_buses() -> None:
+    """Initialize registered buses for the Pune transit fleet."""
+    default_fleet = [
+        {"bus_id": "BUS-001", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "ONLINE", "battery": 87, "uptime": "6h 20m", "latitude": 18.5196, "longitude": 73.8436, "last_event": "EVT-000001"},
+        {"bus_id": "BUS-002", "route_id": "ROUTE-PUNE-JM", "route_name": "JM Road Corridor", "status": "ONLINE", "battery": 74, "uptime": "5h 10m", "latitude": 18.5255, "longitude": 73.8500, "last_event": "EVT-000002"},
+        {"bus_id": "BUS-003", "route_id": "ROUTE-PUNE-KARVE", "route_name": "Karve Road Corridor", "status": "ONLINE", "battery": 91, "uptime": "4h 45m", "latitude": 18.5085, "longitude": 73.8268, "last_event": "EVT-000003"},
+        {"bus_id": "BUS-004", "route_id": "ROUTE-PUNE-SHIVAJI", "route_name": "Swargate to PMC", "status": "ONLINE", "battery": 65, "uptime": "3h 20m", "latitude": 18.5218, "longitude": 73.8540, "last_event": "EVT-000004"},
+        {"bus_id": "BUS-005", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "OFFLINE", "battery": 15, "uptime": "—", "latitude": 18.5158, "longitude": 73.8418, "last_event": "EVT-000010"},
+        {"bus_id": "BUS-006", "route_id": "ROUTE-PUNE-JM", "route_name": "JM Road Corridor", "status": "ONLINE", "battery": 82, "uptime": "2h 55m", "latitude": 18.5280, "longitude": 73.8510, "last_event": "EVT-000011"},
+    ]
+    for b in default_fleet:
+        if b["bus_id"] not in buses_by_id:
+            buses_by_id[b["bus_id"]] = b
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +141,6 @@ def event_to_storage(event: Event) -> dict:
 
 def create_observation_from_event(event: Event, incoming_timestamp: str) -> dict:
     """Derive a normalized immutable Observation record from an ingested Event."""
-    # Match OBS-XXXXXX with EVT-XXXXXX sequence suffix
     seq = event.event_id.split("-")[-1]
     obs_id = f"OBS-{seq}"
     return {
@@ -87,6 +157,286 @@ def create_observation_from_event(event: Event, incoming_timestamp: str) -> dict
         "road_aligned_latitude": event.road_aligned_latitude,
         "road_aligned_longitude": event.road_aligned_longitude,
     }
+
+
+def seed_demo_data_in_memory() -> dict:
+    """Populate authentic Pune transit demo dataset into memory."""
+    init_default_buses()
+
+    # Initial demo events
+    demo_events = [
+        {
+            "event_id": "EVT-000001",
+            "bus_id": "BUS-001",
+            "event_type": "POTHOLE",
+            "timestamp": "2026-09-22T08:30:00Z",
+            "latitude": 18.519616,
+            "longitude": 73.843587,
+            "road_aligned_latitude": 18.519600,
+            "road_aligned_longitude": 73.843600,
+            "heading_degrees": 92.4,
+            "route_id": "ROUTE-PUNE-FC",
+            "confidence": 0.94,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
+            "source": "actual_bus_simulator",
+            "connectivity_state": "ONLINE",
+        },
+        {
+            "event_id": "EVT-000002",
+            "bus_id": "BUS-002",
+            "event_type": "POTHOLE",
+            "timestamp": "2026-09-22T08:34:20Z",
+            "latitude": 18.519587,
+            "longitude": 73.843620,
+            "road_aligned_latitude": 18.519600,
+            "road_aligned_longitude": 73.843600,
+            "heading_degrees": 91.8,
+            "route_id": "ROUTE-PUNE-FC",
+            "confidence": 0.92,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000002.jpg",
+            "source": "data_demo_simulator",
+            "connectivity_state": "ONLINE",
+        },
+        {
+            "event_id": "EVT-000003",
+            "bus_id": "BUS-003",
+            "event_type": "GARBAGE",
+            "timestamp": "2026-09-22T08:45:00Z",
+            "latitude": 18.508512,
+            "longitude": 73.826815,
+            "road_aligned_latitude": 18.508500,
+            "road_aligned_longitude": 73.826800,
+            "heading_degrees": 268.0,
+            "route_id": "ROUTE-PUNE-KARVE",
+            "confidence": 0.88,
+            "severity": "MEDIUM",
+            "evidence_image": "runtime/evidence/EVT-000003.jpg",
+            "source": "data_demo_simulator",
+            "connectivity_state": "ONLINE",
+        },
+        {
+            "event_id": "EVT-000004",
+            "bus_id": "BUS-004",
+            "event_type": "TRAFFIC_OBSTRUCTION",
+            "timestamp": "2026-09-22T09:10:00Z",
+            "latitude": 18.525510,
+            "longitude": 73.850020,
+            "road_aligned_latitude": 18.525500,
+            "road_aligned_longitude": 73.850000,
+            "heading_degrees": 12.5,
+            "route_id": "ROUTE-PUNE-JM",
+            "confidence": 0.91,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000004.jpg",
+            "source": "data_demo_simulator",
+            "connectivity_state": "ONLINE",
+        },
+        {
+            "event_id": "EVT-000005",
+            "bus_id": "BUS-002",
+            "event_type": "PEDESTRIAN_RISK",
+            "timestamp": "2026-09-22T09:25:00Z",
+            "latitude": 18.521820,
+            "longitude": 73.854030,
+            "road_aligned_latitude": 18.521800,
+            "road_aligned_longitude": 73.854000,
+            "heading_degrees": 180.0,
+            "route_id": "ROUTE-PUNE-SHIVAJI",
+            "confidence": 0.85,
+            "severity": "MEDIUM",
+            "evidence_image": "runtime/evidence/EVT-000005.jpg",
+            "source": "data_demo_simulator",
+            "connectivity_state": "ONLINE",
+        },
+    ]
+
+    for ev in demo_events:
+        events_by_id[ev["event_id"]] = ev
+        obs = {
+            "observation_id": f"OBS-{ev['event_id'].split('-')[-1]}",
+            "event_id": ev["event_id"],
+            "bus_id": ev["bus_id"],
+            "event_type": ev["event_type"],
+            "timestamp": ev["timestamp"],
+            "latitude": ev["latitude"],
+            "longitude": ev["longitude"],
+            "confidence": ev["confidence"],
+            "severity": ev["severity"],
+            "evidence_image": ev["evidence_image"],
+            "road_aligned_latitude": ev["road_aligned_latitude"],
+            "road_aligned_longitude": ev["road_aligned_longitude"],
+        }
+        observations_by_id[obs["observation_id"]] = obs
+
+    # Verified & pending incidents
+    demo_incidents = [
+        {
+            "incident_id": "INC-000001",
+            "event_type": "POTHOLE",
+            "status": "VERIFIED",
+            "latitude": 18.5196,
+            "longitude": 73.8436,
+            "observation_count": 2,
+            "bus_count": 2,
+            "confidence": 0.94,
+            "severity": "HIGH",
+            "department": "MUNICIPAL_CORPORATION",
+            "first_observed_at": "2026-09-22T08:30:00Z",
+            "last_observed_at": "2026-09-22T08:34:20Z",
+            "locality": "Goodluck Chowk, FC Road",
+            "description": "Severe road defect on left lane causing bus suspension shocks and deceleration.",
+            "buses": ["BUS-001", "BUS-002"],
+            "ticket_id": "POT-2026-000001",
+        },
+        {
+            "incident_id": "INC-000002",
+            "event_type": "GARBAGE",
+            "status": "VERIFIED",
+            "latitude": 18.5085,
+            "longitude": 73.8268,
+            "observation_count": 1,
+            "bus_count": 1,
+            "confidence": 0.88,
+            "severity": "MEDIUM",
+            "department": "SANITATION",
+            "first_observed_at": "2026-09-22T08:45:00Z",
+            "last_observed_at": "2026-09-22T08:45:00Z",
+            "locality": "Nal Stop, Karve Road",
+            "description": "Overflowing civic waste accumulated near transit underpass.",
+            "buses": ["BUS-003"],
+            "ticket_id": "POT-2026-000002",
+        },
+        {
+            "incident_id": "INC-000003",
+            "event_type": "TRAFFIC_OBSTRUCTION",
+            "status": "PENDING",
+            "latitude": 18.5255,
+            "longitude": 73.8500,
+            "observation_count": 1,
+            "bus_count": 1,
+            "confidence": 0.91,
+            "severity": "HIGH",
+            "department": "TRAFFIC_POLICE",
+            "first_observed_at": "2026-09-22T09:10:00Z",
+            "last_observed_at": "2026-09-22T09:10:00Z",
+            "locality": "Sambhaji Park, JM Road",
+            "description": "Unattended construction debris blocking bus transit corridor lane.",
+            "buses": ["BUS-004"],
+            "ticket_id": None,
+        },
+        {
+            "incident_id": "INC-000004",
+            "event_type": "PEDESTRIAN_RISK",
+            "status": "VERIFIED",
+            "latitude": 18.5218,
+            "longitude": 73.8540,
+            "observation_count": 1,
+            "bus_count": 1,
+            "confidence": 0.85,
+            "severity": "MEDIUM",
+            "department": "TRAFFIC_POLICE",
+            "first_observed_at": "2026-09-22T09:25:00Z",
+            "last_observed_at": "2026-09-22T09:25:00Z",
+            "locality": "PMC Building, Shivaji Road",
+            "description": "Damaged pedestrian guardrail causing commuters to spill onto carriageway.",
+            "buses": ["BUS-002"],
+            "ticket_id": "POT-2026-000003",
+        },
+    ]
+
+    for inc in demo_incidents:
+        incidents_by_id[inc["incident_id"]] = inc
+
+    # Civic tickets
+    demo_tickets = [
+        {
+            "ticket_id": "POT-2026-000001",
+            "incident_id": "INC-000001",
+            "workorder_id": "WO-2026-000001",
+            "event_type": "POTHOLE",
+            "confidence": 0.94,
+            "latitude": 18.5196,
+            "longitude": 73.8436,
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
+            "google_maps_url": "https://www.google.com/maps/dir/?api=1&destination=18.5196,73.8436",
+            "estimated_repair_sla_hours": 48,
+            "status": "IN_PROGRESS",
+            "department": "Road Maintenance Department",
+            "priority": "HIGH",
+            "created_at": "2026-09-22T08:35:00Z",
+            "updated_at": "2026-09-22T09:00:00Z",
+            "timeline": [
+                {"label": "Reported", "done": True, "time": "22 Sep, 08:35 AM"},
+                {"label": "Acknowledged", "done": True, "time": "22 Sep, 08:45 AM"},
+                {"label": "In Progress", "done": True, "time": "22 Sep, 09:00 AM"},
+                {"label": "Resolved", "done": False, "time": "Pending"},
+            ],
+        },
+        {
+            "ticket_id": "POT-2026-000002",
+            "incident_id": "INC-000002",
+            "workorder_id": "WO-2026-000002",
+            "event_type": "GARBAGE",
+            "confidence": 0.88,
+            "latitude": 18.5085,
+            "longitude": 73.8268,
+            "evidence_image": "runtime/evidence/EVT-000003.jpg",
+            "google_maps_url": "https://www.google.com/maps/dir/?api=1&destination=18.5085,73.8268",
+            "estimated_repair_sla_hours": 24,
+            "status": "ACKNOWLEDGED",
+            "department": "Sanitation Department",
+            "priority": "MEDIUM",
+            "created_at": "2026-09-22T08:50:00Z",
+            "updated_at": "2026-09-22T08:55:00Z",
+            "timeline": [
+                {"label": "Reported", "done": True, "time": "22 Sep, 08:50 AM"},
+                {"label": "Acknowledged", "done": True, "time": "22 Sep, 08:55 AM"},
+                {"label": "In Progress", "done": False, "time": "Pending"},
+                {"label": "Resolved", "done": False, "time": "Pending"},
+            ],
+        },
+        {
+            "ticket_id": "POT-2026-000003",
+            "incident_id": "INC-000004",
+            "workorder_id": "WO-2026-000003",
+            "event_type": "PEDESTRIAN_RISK",
+            "confidence": 0.85,
+            "latitude": 18.5218,
+            "longitude": 73.8540,
+            "evidence_image": "runtime/evidence/EVT-000005.jpg",
+            "google_maps_url": "https://www.google.com/maps/dir/?api=1&destination=18.5218,73.8540",
+            "estimated_repair_sla_hours": 72,
+            "status": "REPORTED",
+            "department": "Traffic Police",
+            "priority": "MEDIUM",
+            "created_at": "2026-09-22T09:30:00Z",
+            "updated_at": "2026-09-22T09:30:00Z",
+            "timeline": [
+                {"label": "Reported", "done": True, "time": "22 Sep, 09:30 AM"},
+                {"label": "Acknowledged", "done": False, "time": "Pending"},
+                {"label": "In Progress", "done": False, "time": "Pending"},
+                {"label": "Resolved", "done": False, "time": "Pending"},
+            ],
+        },
+    ]
+
+    for tkt in demo_tickets:
+        tickets_by_id[tkt["ticket_id"]] = tkt
+
+    return {
+        "message": "Demo data seeded successfully",
+        "events_count": len(events_by_id),
+        "observations_count": len(observations_by_id),
+        "incidents_count": len(incidents_by_id),
+        "tickets_count": len(tickets_by_id),
+        "buses_count": len(buses_by_id),
+    }
+
+
+# Initialize registered fleet buses
+init_default_buses()
 
 
 # ---------------------------------------------------------------------------
@@ -107,8 +457,137 @@ def health_check():
         "service": "Member 3 Backend",
         "status": "running",
         "contract_version": "v1",
+        "dashboard_url": "/dashboard",
         "timestamp": iso_utc(datetime.now(timezone.utc)),
     }
+
+
+@api_router.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"], include_in_schema=False)
+def serve_dashboard():
+    """Serve the single-page GIS Dashboard."""
+    possible_paths = [
+        Path(__file__).resolve().parent.parent.parent / "dashboard" / "index.html",
+        Path.cwd() / "dashboard" / "index.html",
+    ]
+    for path in possible_paths:
+        if path.is_file():
+            return HTMLResponse(content=path.read_text(encoding="utf-8"))
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard index.html not found")
+
+
+# ---------------------------------------------------------------------------
+# Platform Statistics & Fleet Telemetry
+# ---------------------------------------------------------------------------
+
+@api_router.get("/stats", tags=["Platform"])
+def get_platform_stats():
+    """Return summary KPI analytics for the GIS dashboard."""
+    init_default_buses()
+    total_incidents = len(incidents_by_id)
+    verified_incidents = sum(1 for i in incidents_by_id.values() if i.get("status") == "VERIFIED")
+    open_tickets = sum(1 for t in tickets_by_id.values() if t.get("status") != "RESOLVED")
+    resolved_tickets = sum(1 for t in tickets_by_id.values() if t.get("status") == "RESOLVED")
+    online_fleet = sum(1 for b in buses_by_id.values() if b.get("status") == "ONLINE")
+
+    return {
+        "total_events": len(events_by_id),
+        "total_observations": len(observations_by_id),
+        "total_incidents": total_incidents,
+        "verified_incidents": verified_incidents,
+        "open_tickets": open_tickets,
+        "resolved_tickets": resolved_tickets,
+        "fleet_total": len(buses_by_id),
+        "fleet_online": online_fleet,
+        "timestamp": iso_utc(datetime.now(timezone.utc)),
+    }
+
+
+@api_router.get("/fleet", tags=["Fleet"])
+def list_fleet():
+    """Return active fleet buses with telemetry, routes, and edge AI status."""
+    init_default_buses()
+    return {
+        "count": len(buses_by_id),
+        "fleet": list(buses_by_id.values()),
+    }
+
+
+@api_router.get("/fleet/{bus_id}", tags=["Fleet"])
+def get_bus_telemetry(bus_id: str):
+    init_default_buses()
+    bus = buses_by_id.get(bus_id)
+    if bus is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bus not found")
+    return bus
+
+
+# ---------------------------------------------------------------------------
+# GIS GeoJSON APIs
+# ---------------------------------------------------------------------------
+
+@api_router.get("/incidents/geojson", tags=["GIS"])
+def get_incidents_geojson():
+    """Return an RFC 7946 GeoJSON FeatureCollection of all incidents."""
+    features = []
+    for inc in incidents_by_id.values():
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [float(inc["longitude"]), float(inc["latitude"])],
+            },
+            "properties": {
+                "incident_id": inc["incident_id"],
+                "event_type": inc["event_type"],
+                "status": inc["status"],
+                "severity": inc.get("severity", "MEDIUM"),
+                "confidence": inc.get("confidence", 0.9),
+                "observation_count": inc.get("observation_count", 1),
+                "department": inc.get("department", "MUNICIPAL_CORPORATION"),
+                "locality": inc.get("locality", "Pune Transit Corridor"),
+                "ticket_id": inc.get("ticket_id"),
+                "description": inc.get("description", ""),
+                "first_observed_at": inc.get("first_observed_at"),
+                "last_observed_at": inc.get("last_observed_at"),
+            },
+        })
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+
+@api_router.get("/routes/geojson", tags=["GIS"])
+def get_routes_geojson():
+    """Return an RFC 7946 GeoJSON FeatureCollection of Pune road corridors."""
+    features = []
+    for route in PUNE_CORRIDORS:
+        coords = [[wp["lng"], wp["lat"]] for wp in route["waypoints"]]
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "LineString",
+                "coordinates": coords,
+            },
+            "properties": {
+                "route_id": route["route_id"],
+                "name": route["name"],
+                "description": route["description"],
+                "color": route["color"],
+                "waypoints": route["waypoints"],
+            },
+        })
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+
+@api_router.post("/demo/seed", tags=["Platform"])
+def seed_demo_endpoint():
+    """Seed or reset the working demonstration dataset."""
+    result = seed_demo_data_in_memory()
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +607,6 @@ def ingest_event(event: Event):
     if event.event_id in events_by_id:
         existing = events_by_id[event.event_id]
 
-        # Same event_id + different payload is a conflict, not a duplicate.
         if existing != incoming:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -149,6 +627,26 @@ def ingest_event(event: Event):
     # Record normalized observation record
     obs = create_observation_from_event(event, incoming["timestamp"])
     observations_by_id[obs["observation_id"]] = obs
+
+    # Update bus telemetry if registered
+    init_default_buses()
+    if event.bus_id in buses_by_id:
+        buses_by_id[event.bus_id]["last_event"] = event.event_id
+        buses_by_id[event.bus_id]["latitude"] = event.latitude
+        buses_by_id[event.bus_id]["longitude"] = event.longitude
+        buses_by_id[event.bus_id]["status"] = event.connectivity_state or "ONLINE"
+    else:
+        buses_by_id[event.bus_id] = {
+            "bus_id": event.bus_id,
+            "route_id": getattr(event, "route_id", "ROUTE-PUNE-FC"),
+            "route_name": "Active Transit Route",
+            "status": event.connectivity_state or "ONLINE",
+            "battery": 85,
+            "uptime": "Live",
+            "latitude": event.latitude,
+            "longitude": event.longitude,
+            "last_event": event.event_id,
+        }
 
     return {
         "message": "Event accepted",
@@ -271,7 +769,19 @@ def create_ticket(ticket: Ticket):
             "duplicate": True,
         }
 
+    # Initialize timeline stepper
+    data["timeline"] = [
+        {"label": "Reported", "done": True, "time": iso_utc(ticket.created_at)},
+        {"label": "Acknowledged", "done": False, "time": "Pending"},
+        {"label": "In Progress", "done": False, "time": "Pending"},
+        {"label": "Resolved", "done": False, "time": "Pending"},
+    ]
+
     tickets_by_id[ticket.ticket_id] = data
+
+    # Link ticket to incident if found
+    if ticket.incident_id in incidents_by_id:
+        incidents_by_id[ticket.incident_id]["ticket_id"] = ticket.ticket_id
 
     return {
         "message": "Ticket accepted",
@@ -312,7 +822,23 @@ def update_ticket_status(ticket_id: str, new_status: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
 
     ticket["status"] = new_status
-    ticket["updated_at"] = iso_utc(datetime.now(timezone.utc))
+    now_iso = iso_utc(datetime.now(timezone.utc))
+    ticket["updated_at"] = now_iso
+
+    # Update timeline if present
+    if "timeline" in ticket and isinstance(ticket["timeline"], list):
+        status_map = {
+            "REPORTED": 0,
+            "ACKNOWLEDGED": 1,
+            "IN_PROGRESS": 2,
+            "RESOLVED": 3,
+        }
+        target_idx = status_map.get(new_status, 0)
+        for i, step in enumerate(ticket["timeline"]):
+            if i <= target_idx:
+                step["done"] = True
+                if step.get("time") == "Pending":
+                    step["time"] = now_iso
 
     return {
         "message": "Ticket status updated",

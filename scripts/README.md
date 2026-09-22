@@ -1,10 +1,36 @@
 # Scripts
 
-Executable utility scripts for demonstration, testing, and development setup.
+Executable utility scripts for demonstration, testing, development setup, and prototype operations.
+
+---
 
 ## Available Scripts
 
-### 1. `run_demo.py` (Repeatable Demo Runner)
+### 1. `run_prototype.py` (Unified All-in-One Prototype Launcher)
+
+Launches the complete integrated prototype in a single command:
+1. Validates Python environment and dependencies.
+2. Boots the FastAPI central backend with GIS endpoints on port 8000.
+3. Automatically seeds working Pune demonstration transit corridor data.
+4. Opens the real-time Leaflet GIS Dashboard in your default web browser (`http://localhost:8000/dashboard`).
+5. Handles clean termination on `Ctrl+C`.
+
+#### Usage
+
+```bash
+# Standard launch (boots backend, seeds data, opens browser):
+python3 scripts/run_prototype.py
+
+# Headless mode (without opening browser automatically):
+python3 scripts/run_prototype.py --no-browser
+
+# Custom port:
+python3 scripts/run_prototype.py --port 8080
+```
+
+---
+
+### 2. `run_demo.py` (Repeatable Demo Runner)
 
 Executes the official target demonstration story defined in [docs/demo.md](../docs/demo.md):
 - Multi-bus defect corroboration on FC Road, Pune (`BUS-001` & `BUS-002`)
@@ -29,9 +55,9 @@ python3 scripts/run_demo.py --backend-url http://localhost:8000
 
 ---
 
-### 2. `seed_demo_data.py` (Database Seeder)
+### 3. `seed_demo_data.py` (Database Seeder)
 
-Initializes PostgreSQL/PostGIS database schema and seeds representative Pune transit fleet data, registered buses, historical observations, verified incidents, and civic tickets.
+Initializes PostgreSQL/PostGIS database schema and seeds representative Pune transit fleet data, registered buses, historical observations, verified incidents, and civic tickets into the database.
 
 #### Usage
 
