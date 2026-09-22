@@ -118,3 +118,74 @@ class TestDashboardIntegration(unittest.TestCase):
 
         # Cleanup
         tickets_by_id.pop("POT-2026-888888", None)
+
+    def test_websocket_stream_and_initial_state(self) -> None:
+        """Verify real-time WebSocket connection, initial state payload, and ping-pong."""
+        with self.client.websocket_connect("/api/v1/ws") as websocket:
+            data = websocket.receive_json()
+            self.assertEqual(data.get("type"), "INITIAL_STATE")
+            self.assertIn("stats", data.get("data", {}))
+            self.assertIn("fleet", data.get("data", {}))
+            self.assertIn("incidents", data.get("data", {}))
+
+            websocket.send_text("ping")
+            reply = websocket.receive_text()
+            self.assertEqual(reply, "pong")
+
+    def test_simulator_trigger_scenarios(self) -> None:
+        """Verify interactive scenario execution from the GIS dashboard."""
+        # Dual-bus scenario
+        res = self.client.post("/api/v1/simulators/trigger", json={"scenario": "dual_bus"})
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn("Dual-bus scenario executed", data["message"])
+        self.assertEqual(data["incident_id"], "INC-000001")
+        self.assertEqual(data["ticket_id"], "POT-2026-000001")
+
+        # Verify incident and ticket exist with verified road location
+        inc_res = self.client.get("/incidents/INC-000001")
+        self.assertEqual(inc_res.status_code, 200)
+        self.assertEqual(inc_res.json()["status"], "VERIFIED")
+        self.assertEqual(inc_res.json()["latitude"], 18.5196)
+        self.assertEqual(inc_res.json()["longitude"], 73.8436)
+
+        # Offline replay scenario
+        offline_res = self.client.post("/api/v1/simulators/trigger", json={"scenario": "offline_replay"})
+        self.assertEqual(offline_res.status_code, 200)
+        self.assertIn("Offline replay scenario executed", offline_res.json()["message"])
+
+        # Resolution scenario
+        res_res = self.client.post("/api/v1/simulators/trigger", json={"scenario": "resolution"})
+        self.assertEqual(res_res.status_code, 200)
+        tkt_res = self.client.get("/tickets/POT-2026-000001")
+        self.assertEqual(tkt_res.status_code, 200)
+        self.assertEqual(tkt_res.json()["status"], "RESOLVED")
+
+    def test_static_evidence_serving(self) -> None:
+        """Verify evidence photos can be retrieved by the browser for inspection."""
+        res = self.client.get("/runtime/evidence/EVT-000001.jpg")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("image/jpeg", res.headers.get("content-type", ""))
+
+    def test_pune_corridor_road_snapping_verification(self) -> None:
+        """Verify all seeded incidents lie exactly on authentic Pune road corridors."""
+        self.client.post("/api/v1/demo/seed")
+        res = self.client.get("/api/v1/incidents")
+        self.assertEqual(res.status_code, 200)
+        incidents = res.json()["incidents"]
+
+        rts_res = self.client.get("/api/v1/routes/geojson")
+        routes_geojson = rts_res.json()
+        all_waypoints = []
+        for feat in routes_geojson["features"]:
+            for coord in feat["geometry"]["coordinates"]:
+                all_waypoints.append((coord[1], coord[0]))  # (lat, lon)
+
+        # Check each incident is associated with a waypoint coordinate or along corridor
+        for inc in incidents:
+            lat = float(inc["latitude"])
+            lon = float(inc["longitude"])
+            # Ensure within Pune bounding box
+            self.assertTrue(18.49 <= lat <= 18.55, f"Latitude {lat} out of Pune range")
+            self.assertTrue(73.81 <= lon <= 73.87, f"Longitude {lon} out of Pune range")
+

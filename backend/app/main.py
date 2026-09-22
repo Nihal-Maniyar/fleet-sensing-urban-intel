@@ -1,12 +1,22 @@
 """FastAPI backend application for Fleet Sensing Urban Intelligence."""
 
+import asyncio
 from datetime import datetime, timezone
+import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi import (
+    APIRouter,
+    FastAPI,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 # Handle imports whether launched from root or backend directory
 try:
@@ -40,6 +50,42 @@ app = FastAPI(
     version="1.0.0",
     description="FastAPI service for contract-valid event ingestion, observations, incidents, civic ticket lifecycle, and GIS layers.",
 )
+
+# ---------------------------------------------------------------------------
+# Static Evidence Mounting
+# ---------------------------------------------------------------------------
+evidence_dir = Path(__file__).resolve().parent.parent.parent / "runtime" / "evidence"
+evidence_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/runtime/evidence", StaticFiles(directory=str(evidence_dir)), name="evidence")
+
+
+# ---------------------------------------------------------------------------
+# Real-Time WebSocket Connection Manager
+# ---------------------------------------------------------------------------
+class ConnectionManager:
+    """Manages active dashboard WebSocket subscriptions and broadcasts."""
+
+    def __init__(self) -> None:
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket) -> None:
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket) -> None:
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                if connection in self.active_connections:
+                    self.active_connections.remove(connection)
+
+
+ws_manager = ConnectionManager()
 
 # ---------------------------------------------------------------------------
 # Prototype in-memory storage
@@ -591,11 +637,221 @@ def seed_demo_endpoint():
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Simulator Interactive Trigger Endpoint
+# ---------------------------------------------------------------------------
+
+@api_router.post("/simulators/trigger", tags=["Platform"])
+async def trigger_simulator_scenario(payload: Optional[Dict[str, Any]] = None):
+    """Trigger an interactive demonstration scenario and broadcast live updates."""
+    scenario = (payload or {}).get("scenario", "dual_bus")
+
+    if scenario == "dual_bus":
+        now = iso_utc(datetime.now(timezone.utc))
+        # 1. BUS-001 detects high-severity pothole at Goodluck Chowk
+        evt1 = {
+            "event_id": "EVT-000001",
+            "bus_id": "BUS-001",
+            "event_type": "POTHOLE",
+            "timestamp": now,
+            "latitude": 18.519616,
+            "longitude": 73.843587,
+            "road_aligned_latitude": 18.519600,
+            "road_aligned_longitude": 73.843600,
+            "heading_degrees": 92.4,
+            "route_id": "ROUTE-PUNE-FC",
+            "confidence": 0.94,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
+            "source": "actual_bus_simulator",
+            "connectivity_state": "ONLINE",
+        }
+        events_by_id[evt1["event_id"]] = evt1
+        observations_by_id["OBS-000001"] = {
+            "observation_id": "OBS-000001",
+            "event_id": "EVT-000001",
+            "bus_id": "BUS-001",
+            "event_type": "POTHOLE",
+            "timestamp": evt1["timestamp"],
+            "latitude": evt1["latitude"],
+            "longitude": evt1["longitude"],
+            "confidence": evt1["confidence"],
+            "severity": evt1["severity"],
+            "evidence_image": evt1["evidence_image"],
+            "road_aligned_latitude": evt1["road_aligned_latitude"],
+            "road_aligned_longitude": evt1["road_aligned_longitude"],
+        }
+        init_default_buses()
+        buses_by_id["BUS-001"]["latitude"] = evt1["latitude"]
+        buses_by_id["BUS-001"]["longitude"] = evt1["longitude"]
+        buses_by_id["BUS-001"]["last_event"] = evt1["event_id"]
+        await ws_manager.broadcast({"type": "EVENT_INGESTED", "data": evt1, "bus": buses_by_id["BUS-001"]})
+
+        # 2. BUS-002 independent corroboration at same road point
+        evt2 = {
+            "event_id": "EVT-000002",
+            "bus_id": "BUS-002",
+            "event_type": "POTHOLE",
+            "timestamp": now,
+            "latitude": 18.519587,
+            "longitude": 73.843620,
+            "road_aligned_latitude": 18.519600,
+            "road_aligned_longitude": 73.843600,
+            "heading_degrees": 91.8,
+            "route_id": "ROUTE-PUNE-FC",
+            "confidence": 0.92,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000002.jpg",
+            "source": "data_demo_simulator",
+            "connectivity_state": "ONLINE",
+        }
+        events_by_id[evt2["event_id"]] = evt2
+        observations_by_id["OBS-000002"] = {
+            "observation_id": "OBS-000002",
+            "event_id": "EVT-000002",
+            "bus_id": "BUS-002",
+            "event_type": "POTHOLE",
+            "timestamp": evt2["timestamp"],
+            "latitude": evt2["latitude"],
+            "longitude": evt2["longitude"],
+            "confidence": evt2["confidence"],
+            "severity": evt2["severity"],
+            "evidence_image": evt2["evidence_image"],
+            "road_aligned_latitude": evt2["road_aligned_latitude"],
+            "road_aligned_longitude": evt2["road_aligned_longitude"],
+        }
+        buses_by_id["BUS-002"]["latitude"] = evt2["latitude"]
+        buses_by_id["BUS-002"]["longitude"] = evt2["longitude"]
+        buses_by_id["BUS-002"]["last_event"] = evt2["event_id"]
+        await ws_manager.broadcast({"type": "EVENT_INGESTED", "data": evt2, "bus": buses_by_id["BUS-002"]})
+
+        # 3. Fleet fusion verified incident
+        inc = {
+            "incident_id": "INC-000001",
+            "event_type": "POTHOLE",
+            "status": "VERIFIED",
+            "latitude": 18.519600,
+            "longitude": 73.843600,
+            "observation_count": 2,
+            "bus_count": 2,
+            "confidence": 0.95,
+            "severity": "HIGH",
+            "department": "MUNICIPAL_CORPORATION",
+            "first_observed_at": evt1["timestamp"],
+            "last_observed_at": evt2["timestamp"],
+            "locality": "Goodluck Chowk, FC Road",
+            "description": "Corroborated severe pothole on FC Road verified by Fleet Fusion.",
+            "buses": ["BUS-001", "BUS-002"],
+            "ticket_id": "POT-2026-000001",
+        }
+        incidents_by_id[inc["incident_id"]] = inc
+        await ws_manager.broadcast({"type": "INCIDENT_UPDATED", "data": inc})
+
+        # 4. Civic ticket
+        tkt = {
+            "ticket_id": "POT-2026-000001",
+            "incident_id": "INC-000001",
+            "workorder_id": "WO-2026-000001",
+            "event_type": "POTHOLE",
+            "confidence": 0.95,
+            "latitude": 18.519600,
+            "longitude": 73.843600,
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
+            "google_maps_url": "https://www.google.com/maps/dir/?api=1&destination=18.519600,73.843600",
+            "estimated_repair_sla_hours": 48,
+            "status": "REPORTED",
+            "locality": "Goodluck Chowk, FC Road",
+            "created_at": evt2["timestamp"],
+            "updated_at": evt2["timestamp"],
+            "timeline": [
+                {"label": "Reported", "done": True, "time": evt2["timestamp"]},
+                {"label": "Acknowledged", "done": False, "time": "Pending"},
+                {"label": "In Progress", "done": False, "time": "Pending"},
+                {"label": "Resolved", "done": False, "time": "Pending"},
+            ],
+        }
+        tickets_by_id[tkt["ticket_id"]] = tkt
+        await ws_manager.broadcast({"type": "TICKET_CREATED", "data": tkt})
+        await ws_manager.broadcast({"type": "STATS_UPDATED", "data": get_platform_stats()})
+
+        return {"message": "Dual-bus scenario executed successfully", "incident_id": "INC-000001", "ticket_id": "POT-2026-000001"}
+
+    elif scenario == "offline_replay":
+        now = iso_utc(datetime.now(timezone.utc))
+        init_default_buses()
+        buses_by_id["BUS-003"]["status"] = "OFFLINE"
+        await ws_manager.broadcast({"type": "FLEET_UPDATED", "data": list(buses_by_id.values())})
+
+        evt_offline = {
+            "event_id": "EVT-000010",
+            "bus_id": "BUS-003",
+            "event_type": "GARBAGE",
+            "timestamp": now,
+            "latitude": 18.508520,
+            "longitude": 73.826830,
+            "road_aligned_latitude": 18.508500,
+            "road_aligned_longitude": 73.826800,
+            "heading_degrees": 240.0,
+            "route_id": "ROUTE-PUNE-KARVE",
+            "confidence": 0.88,
+            "severity": "MEDIUM",
+            "evidence_image": "runtime/evidence/EVT-000003.jpg",
+            "source": "actual_bus_simulator",
+            "connectivity_state": "ONLINE",
+        }
+        events_by_id[evt_offline["event_id"]] = evt_offline
+        buses_by_id["BUS-003"]["status"] = "ONLINE"
+        buses_by_id["BUS-003"]["last_event"] = "EVT-000010"
+        await ws_manager.broadcast({"type": "EVENT_INGESTED", "data": evt_offline, "bus": buses_by_id["BUS-003"]})
+        await ws_manager.broadcast({"type": "FLEET_UPDATED", "data": list(buses_by_id.values())})
+        await ws_manager.broadcast({"type": "STATS_UPDATED", "data": get_platform_stats()})
+
+        return {"message": "Offline replay scenario executed successfully", "event_id": "EVT-000010"}
+
+    elif scenario == "resolution":
+        now = iso_utc(datetime.now(timezone.utc))
+        tkt = tickets_by_id.get("POT-2026-000001")
+        if tkt:
+            tkt["status"] = "RESOLVED"
+            tkt["updated_at"] = now
+            for step in tkt.get("timeline", []):
+                step["done"] = True
+                if step.get("time") == "Pending":
+                    step["time"] = now
+            await ws_manager.broadcast({"type": "TICKET_STATUS_UPDATED", "data": tkt})
+
+        inc = incidents_by_id.get("INC-000001")
+        if inc:
+            inc["status"] = "RESOLVED"
+            inc["last_observed_at"] = now
+            await ws_manager.broadcast({"type": "INCIDENT_UPDATED", "data": inc})
+
+        await ws_manager.broadcast({"type": "STATS_UPDATED", "data": get_platform_stats()})
+        return {"message": "Resolution scenario executed successfully", "ticket_id": "POT-2026-000001"}
+
+    elif scenario == "seed":
+        seed_result = seed_demo_data_in_memory()
+        await ws_manager.broadcast({
+            "type": "INITIAL_STATE",
+            "data": {
+                "stats": get_platform_stats(),
+                "fleet": list(buses_by_id.values()),
+                "incidents": list(incidents_by_id.values()),
+                "tickets": list(tickets_by_id.values()),
+                "events": list(events_by_id.values())[-15:],
+            },
+        })
+        return seed_result
+
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown scenario: {scenario}")
+
+
+# ---------------------------------------------------------------------------
 # Event Ingestion
 # ---------------------------------------------------------------------------
 
 @api_router.post("/events", status_code=status.HTTP_201_CREATED, tags=["Events"])
-def ingest_event(event: Event):
+async def ingest_event(event: Event):
     """
     Validate and idempotently ingest one contract-valid event.
 
@@ -648,6 +904,14 @@ def ingest_event(event: Event):
             "last_event": event.event_id,
         }
 
+    # Broadcast event and stats to all active WebSocket clients in realtime
+    await ws_manager.broadcast({
+        "type": "EVENT_INGESTED",
+        "data": incoming,
+        "bus": buses_by_id.get(event.bus_id),
+        "stats": get_platform_stats(),
+    })
+
     return {
         "message": "Event accepted",
         "event_id": event.event_id,
@@ -697,7 +961,7 @@ def get_observation(observation_id: str):
 # ---------------------------------------------------------------------------
 
 @api_router.post("/incidents", status_code=status.HTTP_201_CREATED, tags=["Incidents"])
-def create_incident(incident: Incident):
+async def create_incident(incident: Incident):
     data = incident.model_dump(mode="json")
     data["first_observed_at"] = iso_utc(incident.first_observed_at)
     data["last_observed_at"] = iso_utc(incident.last_observed_at)
@@ -719,6 +983,12 @@ def create_incident(incident: Incident):
         }
 
     incidents_by_id[incident.incident_id] = data
+
+    await ws_manager.broadcast({
+        "type": "INCIDENT_CREATED",
+        "data": data,
+        "stats": get_platform_stats(),
+    })
 
     return {
         "message": "Incident accepted",
@@ -748,7 +1018,7 @@ def get_incident(incident_id: str):
 # ---------------------------------------------------------------------------
 
 @api_router.post("/tickets", status_code=status.HTTP_201_CREATED, tags=["Tickets"])
-def create_ticket(ticket: Ticket):
+async def create_ticket(ticket: Ticket):
     data = ticket.model_dump(mode="json")
     data["created_at"] = iso_utc(ticket.created_at)
     data["updated_at"] = iso_utc(ticket.updated_at)
@@ -783,6 +1053,12 @@ def create_ticket(ticket: Ticket):
     if ticket.incident_id in incidents_by_id:
         incidents_by_id[ticket.incident_id]["ticket_id"] = ticket.ticket_id
 
+    await ws_manager.broadcast({
+        "type": "TICKET_CREATED",
+        "data": data,
+        "stats": get_platform_stats(),
+    })
+
     return {
         "message": "Ticket accepted",
         "ticket": data,
@@ -807,7 +1083,7 @@ def get_ticket(ticket_id: str):
 
 
 @api_router.patch("/tickets/{ticket_id}/status", tags=["Tickets"])
-def update_ticket_status(ticket_id: str, new_status: str):
+async def update_ticket_status(ticket_id: str, new_status: str):
     if new_status not in TICKET_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -840,6 +1116,12 @@ def update_ticket_status(ticket_id: str, new_status: str):
                 if step.get("time") == "Pending":
                     step["time"] = now_iso
 
+    await ws_manager.broadcast({
+        "type": "TICKET_STATUS_UPDATED",
+        "data": ticket,
+        "stats": get_platform_stats(),
+    })
+
     return {
         "message": "Ticket status updated",
         "ticket": ticket,
@@ -870,6 +1152,37 @@ def get_ticket_map(ticket_id: str):
 # Mount routes at root and with /api/v1 prefix
 app.include_router(api_router)
 app.include_router(api_router, prefix="/api/v1")
+
+
+# ---------------------------------------------------------------------------
+# Real-Time WebSocket Endpoint
+# ---------------------------------------------------------------------------
+
+@app.websocket("/ws")
+@app.websocket("/api/v1/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Real-time bi-directional streaming endpoint for the GIS Dashboard."""
+    await ws_manager.connect(websocket)
+    try:
+        init_default_buses()
+        await websocket.send_json({
+            "type": "INITIAL_STATE",
+            "data": {
+                "stats": get_platform_stats(),
+                "fleet": list(buses_by_id.values()),
+                "incidents": list(incidents_by_id.values()),
+                "tickets": list(tickets_by_id.values()),
+                "events": list(events_by_id.values())[-15:],
+            },
+        })
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception:
+        ws_manager.disconnect(websocket)
 
 
 if __name__ == "__main__":
