@@ -1123,12 +1123,6 @@ async function fetchInitialData() {
       state.recentEvents = (evtData.events || []).slice(-20).reverse();
     }
 
-    // Auto-seed if database/memory is pristine
-    if (state.incidents.length === 0) {
-      await fetch('/api/v1/demo/seed', { method: 'POST' });
-      return fetchInitialData();
-    }
-
     updateAllViews();
   } catch (err) {
     console.warn("Initial sync error:", err);

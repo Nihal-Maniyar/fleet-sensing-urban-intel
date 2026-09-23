@@ -1,66 +1,62 @@
-# Scripts
+# Scripts Directory
 
-Executable utility scripts for demonstration, testing, development setup, and prototype operations.
+This directory contains utility entrypoints for running and managing the Fleet Sensing Urban Intelligence platform.
 
----
+## Production End-to-End Runner
 
-## Available Scripts
-
-### 1. `run_prototype.py` (Unified All-in-One Prototype Launcher)
-
-Launches the complete integrated prototype in a single command:
-1. Validates Python environment and dependencies.
-2. Boots the FastAPI central backend with GIS endpoints on port 8000.
-3. Automatically seeds working Pune demonstration transit corridor data.
-4. Opens the real-time Leaflet GIS Dashboard in your default web browser (`http://localhost:8000/dashboard`).
-5. Handles clean termination on `Ctrl+C`.
-
-#### Usage
+To run the complete system end-to-end in real time:
 
 ```bash
-# Standard launch (boots backend, seeds data, opens browser):
-python3 scripts/run_prototype.py
+# Run using the virtual environment
+./.venv/bin/python run_project.py
 
-# Headless mode (without opening browser automatically):
-python3 scripts/run_prototype.py --no-browser
-
-# Custom port:
-python3 scripts/run_prototype.py --port 8080
+# Or via the scripts entrypoint:
+./.venv/bin/python scripts/run_project.py
 ```
 
----
+### Execution Architecture
 
-### 2. `run_demo.py` (Repeatable Demo Runner)
+The master runner orchestrates the complete production lifecycle:
 
-Executes the official target demonstration story defined in [docs/demo.md](../docs/demo.md):
-- Multi-bus defect corroboration on FC Road, Pune (`BUS-001` & `BUS-002`)
-- Cellular network outage, edge SQLite WAL buffering, reconnection, and idempotent replay
-- Diverse urban sensing events (`POTHOLE`, `GARBAGE`, `TRAFFIC_OBSTRUCTION`, `PEDESTRIAN_RISK`)
-- Incident verification & civic ticket dispatch with Google Maps directions navigation link
-- Ticket status lifecycle transitions (`REPORTED` -> `ACKNOWLEDGED` -> `IN_PROGRESS` -> `RESOLVED`)
-- Resolution verification with post-repair before/after visual evidence comparison
+1. **FastAPI Backend & GIS Server** (`http://127.0.0.1:8000`):
+   - Healthcheck polled at `/health` until confirmed operational.
+   - Dual-transport ingestion (`POST /events` + MQTT broker topic `fleet/events/#`).
+   - Fleet Telemetry ingestion (`POST /api/v1/fleet/telemetry`) updating live bus GPS positions.
+   - Real-time WebSocket multiplexing at `/ws/stream` broadcasting incidents, fleet updates, and metrics.
+   - GIS Dashboard served directly at `http://127.0.0.1:8000/dashboard`.
 
-#### Usage
+2. **Actual Bus Simulator 1 (`BUS-001`)** on port `8001`:
+   - Runs Edge AI sensing pipeline (YOLO + ByteTrack tracking) along corridor `ROUTE-PUNE-FC`.
+   - Generates canonical event IDs (`EVT-010001+`).
+   - Streams live GNSS telemetry and detected road anomalies directly to the backend.
 
-```bash
-# Automated run with smooth delay between steps:
-python3 scripts/run_demo.py --delay 0.5
+3. **Staggered Delay (`--stagger-seconds 6.0`)**:
+   - Holds before launching Bus 2 to create realistic spatial-temporal separation on the same corridor.
 
-# Interactive step-by-step presentation (press Enter to advance):
-python3 scripts/run_demo.py --step
+4. **Actual Bus Simulator 2 (`BUS-002`)** on port `8002`:
+   - Runs along the same corridor (`ROUTE-PUNE-FC`) behind Bus 1.
+   - Generates canonical event IDs (`EVT-020001+`).
+   - Emits observations for the same road defects, triggering the **Fleet Fusion Engine** to correlate observations across buses, elevate confidence, and generate official tickets.
 
-# Run against a live running backend server (e.g. at http://localhost:8000):
-python3 scripts/run_demo.py --backend-url http://localhost:8000
+5. **Live GIS Dashboard**:
+   - Opens automatically in the default browser at `http://127.0.0.1:8000/dashboard`.
+   - Starts in pure real-time live mode with zero seed data, visualizing live buses moving along the Pune corridors, active detections, and fused incident tickets as they occur.
+
+### Command-Line Options
+
+```text
+--backend-host HOST      Host address (default: 127.0.0.1)
+--backend-port PORT      Backend port (default: 8000)
+--bus1-id ID             Bus 1 identifier (default: BUS-001)
+--bus2-id ID             Bus 2 identifier (default: BUS-002)
+--bus1-port PORT         Bus 1 UI port (default: 8001)
+--bus2-port PORT         Bus 2 UI port (default: 8002)
+--route ROUTE            Pune corridor (default: ROUTE-PUNE-FC)
+--stagger-seconds SECS   Stagger delay between buses (default: 6.0)
+--no-browser             Do not auto-open the browser dashboard
+--headless               Run bus simulators in headless pipeline mode
 ```
 
----
+### Clean Teardown
 
-### 3. `seed_demo_data.py` (Database Seeder)
-
-Initializes PostgreSQL/PostGIS database schema and seeds representative Pune transit fleet data, registered buses, historical observations, verified incidents, and civic tickets into the database.
-
-#### Usage
-
-```bash
-python3 scripts/seed_demo_data.py
-```
+Pressing `Ctrl+C` sends graceful termination signals to the backend and all running bus simulators, ensuring no background processes or ports (`8000`, `8001`, `8002`) are left orphaned.

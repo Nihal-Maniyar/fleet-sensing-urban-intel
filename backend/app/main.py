@@ -645,6 +645,44 @@ def get_bus_telemetry(bus_id: str):
     return bus
 
 
+@api_router.post("/fleet/telemetry", tags=["Fleet"])
+async def receive_fleet_telemetry(payload: Dict[str, Any]):
+    """Accept real-time telemetry from running bus simulators and broadcast to GIS dashboard."""
+    bus_id = payload.get("bus_id")
+    if not bus_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing bus_id")
+
+    init_default_buses()
+    if bus_id in buses_by_id:
+        buses_by_id[bus_id].update({
+            "latitude": payload.get("latitude", buses_by_id[bus_id].get("latitude")),
+            "longitude": payload.get("longitude", buses_by_id[bus_id].get("longitude")),
+            "status": payload.get("connectivity_state", "ONLINE"),
+            "route_id": payload.get("route_id", buses_by_id[bus_id].get("route_id")),
+            "speed_kmh": payload.get("speed_kmh", 35.0),
+            "heading_degrees": payload.get("heading_degrees", 0.0),
+        })
+    else:
+        buses_by_id[bus_id] = {
+            "bus_id": bus_id,
+            "route_id": payload.get("route_id", "ROUTE-PUNE-FC"),
+            "route_name": "FC Road Corridor",
+            "status": payload.get("connectivity_state", "ONLINE"),
+            "battery": 90,
+            "uptime": "Live",
+            "latitude": payload.get("latitude", 18.5196),
+            "longitude": payload.get("longitude", 73.8436),
+            "speed_kmh": payload.get("speed_kmh", 35.0),
+            "heading_degrees": payload.get("heading_degrees", 0.0),
+        }
+
+    await ws_manager.broadcast({
+        "type": "FLEET_UPDATED",
+        "data": list(buses_by_id.values()),
+    })
+    return {"status": "ok", "bus": buses_by_id[bus_id]}
+
+
 # ---------------------------------------------------------------------------
 # GIS GeoJSON APIs
 # ---------------------------------------------------------------------------

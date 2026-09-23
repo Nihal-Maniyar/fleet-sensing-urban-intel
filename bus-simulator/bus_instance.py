@@ -6,9 +6,11 @@ temporal event engine, SQLite WAL outbox, and MQTT publisher.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -54,6 +56,8 @@ class BusInstance:
         outbox_db: Optional[str] = None,
         mqtt_host: str = "localhost",
         mqtt_port: int = 1883,
+        backend_url: Optional[str] = "http://127.0.0.1:8000",
+        start_event_seq: Optional[int] = None,
         initial_connectivity: str = "ONLINE",
         target_fps: int = 20,
     ) -> None:
@@ -63,6 +67,8 @@ class BusInstance:
         self.connectivity_state = initial_connectivity
         self.target_fps = target_fps
         self.is_paused = False
+        self.backend_url = backend_url.rstrip("/") if backend_url else None
+        self._step_count = 0
 
         # 1. Initialize Video Stream Source
         if video_source == "synthetic":
@@ -83,12 +89,22 @@ class BusInstance:
         self.gnss = GNSSSimulator(route_id=self.route_id, speed_kmh=36.0)
         self.imu = IMUSimulator(sample_rate_hz=float(self.target_fps))
 
-        # 4. Initialize Event Engine
+        # 4. Initialize Event Engine with bus-specific sequence offset
+        if start_event_seq is not None:
+            seq_start = start_event_seq
+        else:
+            try:
+                bus_num = int(self.bus_id.split("-")[-1])
+            except Exception:
+                bus_num = 1
+            seq_start = bus_num * 10000 + 1
+
         self.event_engine = TemporalEventEngine(
             bus_id=self.bus_id,
             min_persistence_frames=3,
             spatial_suppression_meters=15.0,
             time_suppression_seconds=25.0,
+            start_event_seq=seq_start,
         )
 
         # 5. Initialize Storage & MQTT Transport
@@ -213,19 +229,24 @@ class BusInstance:
                 timestamp=now_utc,
             )
 
-            # 6. Transport handling: MQTT vs SQLite WAL outbox
+            self._step_count += 1
+
+            # 6. Transport handling: MQTT + Direct Backend HTTP + SQLite WAL outbox
             for event in new_events:
                 self.recent_events.insert(0, event)
                 if len(self.recent_events) > 50:
                     self.recent_events.pop()
 
+                delivered = False
                 if self.connectivity_state == "ONLINE":
-                    published = self.mqtt.publish_event(event)
-                    if not published:
-                        # Fallback to outbox if broker unreachable
-                        self.outbox.enqueue(event)
-                else:
-                    # Device is OFFLINE: store in SQLite WAL queue
+                    if self.mqtt and self.mqtt.is_connected:
+                        delivered = self.mqtt.publish_event(event)
+                    if self.backend_url:
+                        http_ok = self._post_event_to_backend(event)
+                        delivered = delivered or http_ok
+
+                if not delivered:
+                    # Device is OFFLINE or brokers unreachable: store in SQLite WAL queue
                     self.outbox.enqueue(event)
 
             # 7. Render UI overlay frame with bounding boxes, ByteTrack IDs, HUD
@@ -259,7 +280,49 @@ class BusInstance:
                 "latest_event_id": self.recent_events[0].event_id if self.recent_events else None,
             }
 
+            if self.backend_url and (self._step_count % 10 == 0):
+                self._post_telemetry_to_backend(telemetry)
+
             return annotated_frame, telemetry
+
+    def _post_event_to_backend(self, event: Event) -> bool:
+        """Deliver sensed event directly to FastAPI backend /events endpoint."""
+        if not self.backend_url:
+            return False
+        url = f"{self.backend_url}/events"
+        try:
+            payload = event.to_dict()
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                if resp.status in (200, 201):
+                    logger.info("[%s] Delivered event %s to backend at %s", self.bus_id, event.event_id, url)
+                    return True
+        except Exception as e:
+            logger.debug("[%s] HTTP event post to %s failed: %s", self.bus_id, url, e)
+        return False
+
+    def _post_telemetry_to_backend(self, telemetry: Dict[str, Any]) -> None:
+        """Stream current bus GPS location to backend for real-time GIS map animation."""
+        if not self.backend_url:
+            return
+        url = f"{self.backend_url}/api/v1/fleet/telemetry"
+        try:
+            payload = {
+                "bus_id": self.bus_id,
+                "route_id": self.route_id,
+                "latitude": telemetry["latitude"],
+                "longitude": telemetry["longitude"],
+                "speed_kmh": telemetry["speed_kmh"],
+                "heading_degrees": telemetry["heading_degrees"],
+                "connectivity_state": self.connectivity_state,
+            }
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=1.0) as resp:
+                pass
+        except Exception:
+            pass
 
     def _render_display_frame(
         self,
