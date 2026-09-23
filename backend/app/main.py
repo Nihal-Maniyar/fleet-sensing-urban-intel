@@ -1,11 +1,15 @@
 """FastAPI backend application for Fleet Sensing Urban Intelligence."""
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("urban_intelligence.backend")
 
 from fastapi import (
     APIRouter,
@@ -44,11 +48,84 @@ except ImportError:
         Ticket,
     )
 
+# Fleet Fusion Engine
+try:
+    from fusion.policy import FleetFusionEngine
+except ImportError:
+    from ...fusion.policy import FleetFusionEngine
+
+# Database operations
+try:
+    from database.connection import db_session
+    from database.operations import (
+        insert_event_idempotent,
+        create_observation as db_create_observation,
+        create_or_update_incident as db_create_or_update_incident,
+        create_ticket as db_create_ticket,
+        transition_ticket_status as db_transition_ticket_status,
+        link_observation_to_incident as db_link_obs_to_inc,
+    )
+except Exception:
+    db_session = None
+
+# MQTT background consumer
+try:
+    from backend.app.services.mqtt_consumer import MQTTEventConsumer
+except ImportError:
+    try:
+        from app.services.mqtt_consumer import MQTTEventConsumer
+    except ImportError:
+        MQTTEventConsumer = None
+
+fusion_engine = FleetFusionEngine()
+
+
+def safe_db_persist(func, *args, **kwargs):
+    """Safely persist to database if connection and session are active, without failing if offline."""
+    if db_session is None:
+        return None
+    try:
+        with db_session() as session:
+            return func(session, *args, **kwargs)
+    except Exception as e:
+        logger.debug("Database operation skipped/fallback: %s", e)
+        return None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI application lifespan: start background MQTT listener if configured."""
+    main_loop = asyncio.get_running_loop()
+
+    def on_mqtt_message(payload: Dict[str, Any]):
+        try:
+            event = Event(**payload)
+            asyncio.run_coroutine_threadsafe(ingest_event(event), main_loop)
+        except Exception as err:
+            logger.warning("Error processing MQTT message: %s", err)
+
+    mqtt_consumer = None
+    if MQTTEventConsumer:
+        try:
+            mqtt_consumer = MQTTEventConsumer(on_event_received=on_mqtt_message)
+            mqtt_consumer.start()
+        except Exception as e:
+            logger.debug("MQTT consumer startup bypassed: %s", e)
+
+    yield
+
+    if mqtt_consumer:
+        try:
+            mqtt_consumer.stop()
+        except Exception:
+            pass
+
 
 app = FastAPI(
     title="Fleet Sensing Urban Intelligence - Backend",
     version="1.0.0",
     description="FastAPI service for contract-valid event ingestion, observations, incidents, civic ticket lifecycle, and GIS layers.",
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -57,6 +134,7 @@ app = FastAPI(
 evidence_dir = Path(__file__).resolve().parent.parent.parent / "runtime" / "evidence"
 evidence_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/runtime/evidence", StaticFiles(directory=str(evidence_dir)), name="evidence")
+
 
 
 # ---------------------------------------------------------------------------
@@ -884,6 +962,84 @@ async def ingest_event(event: Event):
     obs = create_observation_from_event(event, incoming["timestamp"])
     observations_by_id[obs["observation_id"]] = obs
 
+    # Database persistence (idempotent event + observation)
+    safe_db_persist(insert_event_idempotent, incoming)
+    try:
+        ts_clean = incoming["timestamp"].replace("Z", "+00:00")
+        ts_dt = datetime.fromisoformat(ts_clean)
+        safe_db_persist(
+            db_create_observation,
+            observation_id=obs["observation_id"],
+            event_id=obs["event_id"],
+            bus_id=obs["bus_id"],
+            event_type=obs["event_type"],
+            timestamp=ts_dt,
+            latitude=obs["latitude"],
+            longitude=obs["longitude"],
+            confidence=obs["confidence"],
+            evidence_image=obs["evidence_image"],
+            road_aligned_latitude=obs.get("road_aligned_latitude"),
+            road_aligned_longitude=obs.get("road_aligned_longitude"),
+            severity=obs.get("severity"),
+            heading_degrees=incoming.get("heading_degrees"),
+        )
+    except Exception as e:
+        logger.debug("Failed observation DB persist: %s", e)
+
+    # Automatic Fleet Fusion clustering & ticket derivation
+    fused_incident, created_ticket = fusion_engine.process_observation(
+        obs, incidents_by_id, tickets_by_id
+    )
+
+    if fused_incident:
+        try:
+            first_dt = datetime.fromisoformat(fused_incident["first_observed_at"].replace("Z", "+00:00"))
+            last_dt = datetime.fromisoformat(fused_incident["last_observed_at"].replace("Z", "+00:00"))
+            safe_db_persist(
+                db_create_or_update_incident,
+                incident_id=fused_incident["incident_id"],
+                event_type=fused_incident["event_type"],
+                latitude=fused_incident["latitude"],
+                longitude=fused_incident["longitude"],
+                confidence=fused_incident["confidence"],
+                severity=fused_incident["severity"],
+                department=fused_incident["department"],
+                first_observed_at=first_dt,
+                last_observed_at=last_dt,
+                observation_count=fused_incident["observation_count"],
+                bus_count=fused_incident["bus_count"],
+                status=fused_incident["status"],
+            )
+            safe_db_persist(db_link_obs_to_inc, fused_incident["incident_id"], obs["observation_id"])
+        except Exception as e:
+            logger.debug("Incident DB persist error: %s", e)
+
+        await ws_manager.broadcast({
+            "type": "INCIDENT_UPDATED" if fused_incident.get("observation_count", 1) > 1 else "INCIDENT_CREATED",
+            "data": fused_incident,
+        })
+
+    if created_ticket:
+        try:
+            safe_db_persist(
+                db_create_ticket,
+                ticket_id=created_ticket["ticket_id"],
+                incident_id=created_ticket["incident_id"],
+                event_type=created_ticket["event_type"],
+                department=fused_incident.get("department", "MUNICIPAL_CORPORATION") if fused_incident else "MUNICIPAL_CORPORATION",
+                google_maps_url=created_ticket.get("google_maps_url"),
+                workorder_id=created_ticket.get("workorder_id"),
+                estimated_repair_sla_hours=created_ticket.get("estimated_repair_sla_hours", 48),
+                status=created_ticket.get("status", "REPORTED"),
+            )
+        except Exception as e:
+            logger.debug("Ticket DB persist error: %s", e)
+
+        await ws_manager.broadcast({
+            "type": "TICKET_CREATED",
+            "data": created_ticket,
+        })
+
     # Update bus telemetry if registered
     init_default_buses()
     if event.bus_id in buses_by_id:
@@ -968,18 +1124,40 @@ async def create_incident(incident: Incident):
 
     if incident.incident_id in incidents_by_id:
         existing = incidents_by_id[incident.incident_id]
-        if existing != data:
+        if existing.get("event_type") != data.get("event_type"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
                     f"incident_id {incident.incident_id} already exists "
-                    "with a different payload"
+                    f"with conflicting event_type {existing.get('event_type')}"
                 ),
             )
+        is_exact_match = all(existing.get(k) == data.get(k) for k in data.keys())
+        existing.update(data)
+        safe_db_persist(
+            db_create_or_update_incident,
+            incident_id=incident.incident_id,
+            event_type=data["event_type"],
+            latitude=data["latitude"],
+            longitude=data["longitude"],
+            confidence=data["confidence"],
+            severity=data["severity"],
+            department=data["department"],
+            first_observed_at=incident.first_observed_at,
+            last_observed_at=incident.last_observed_at,
+            observation_count=data.get("observation_count", 1),
+            bus_count=data.get("bus_count", 1),
+            status=data["status"],
+        )
+        await ws_manager.broadcast({
+            "type": "INCIDENT_UPDATED",
+            "data": existing,
+            "stats": get_platform_stats(),
+        })
         return {
-            "message": "Duplicate incident ignored",
+            "message": "Duplicate incident ignored" if is_exact_match else "Incident updated",
             "incident": existing,
-            "duplicate": True,
+            "duplicate": True if is_exact_match else False,
         }
 
     incidents_by_id[incident.incident_id] = data
@@ -1025,18 +1203,20 @@ async def create_ticket(ticket: Ticket):
 
     if ticket.ticket_id in tickets_by_id:
         existing = tickets_by_id[ticket.ticket_id]
-        if existing != data:
+        if existing.get("event_type") != data.get("event_type"):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
                     f"ticket_id {ticket.ticket_id} already exists "
-                    "with a different payload"
+                    "with conflicting event_type"
                 ),
             )
+        is_exact_match = all(existing.get(k) == data.get(k) for k in data.keys())
+        existing.update(data)
         return {
-            "message": "Duplicate ticket ignored",
+            "message": "Duplicate ticket ignored" if is_exact_match else "Ticket updated",
             "ticket": existing,
-            "duplicate": True,
+            "duplicate": True if is_exact_match else False,
         }
 
     # Initialize timeline stepper
@@ -1115,6 +1295,13 @@ async def update_ticket_status(ticket_id: str, new_status: str):
                 step["done"] = True
                 if step.get("time") == "Pending":
                     step["time"] = now_iso
+
+    safe_db_persist(
+        db_transition_ticket_status,
+        ticket_id=ticket_id,
+        new_status=new_status,
+        changed_by="dispatcher",
+    )
 
     await ws_manager.broadcast({
         "type": "TICKET_STATUS_UPDATED",
