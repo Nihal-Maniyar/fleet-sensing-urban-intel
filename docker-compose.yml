@@ -1,7 +1,5 @@
 name: beyonders
 
-# Infrastructure-only local scaffold. Application containers are added once the
-# backend and dashboard have actual build definitions.
 services:
   postgis:
     image: postgis/postgis:16-3.4
@@ -13,6 +11,11 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-urban_intelligence}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   mqtt:
     image: eclipse-mosquitto:2
@@ -20,6 +23,24 @@ services:
       - "${MQTT_PORT:-1883}:1883"
     volumes:
       - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgis:5432/${POSTGRES_DB:-urban_intelligence}
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+    depends_on:
+      postgis:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    volumes:
+      - ./runtime:/app/runtime
 
 volumes:
   postgis_data:

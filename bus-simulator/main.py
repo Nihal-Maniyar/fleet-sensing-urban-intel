@@ -105,6 +105,18 @@ def parse_args() -> argparse.Namespace:
         help="MQTT broker port (default: 1883).",
     )
     parser.add_argument(
+        "--backend-url",
+        type=str,
+        default="http://127.0.0.1:8000",
+        help="FastAPI backend URL for direct HTTP event ingestion & live telemetry.",
+    )
+    parser.add_argument(
+        "--start-seq",
+        type=int,
+        default=None,
+        help="Initial event sequence number for distinct canonical EVT-XXXXXX IDs.",
+    )
+    parser.add_argument(
         "--headless",
         action="store_true",
         help="Run sensing pipeline in headless background mode without web server.",
@@ -132,6 +144,8 @@ def main() -> None:
         outbox_db=args.outbox_db,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
+        backend_url=args.backend_url,
+        start_event_seq=args.start_seq,
         initial_connectivity=initial_conn,
     )
 
