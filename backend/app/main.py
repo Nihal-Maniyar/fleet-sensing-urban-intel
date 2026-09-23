@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, FastAPI, HTTPException, status
-from fastapi.responses import HTMLResponse
 
 # Handle imports whether launched from root or backend directory
 try:
@@ -108,22 +107,8 @@ def health_check():
         "service": "Member 3 Backend",
         "status": "running",
         "contract_version": "v1",
-        "dashboard_url": "/dashboard",
         "timestamp": iso_utc(datetime.now(timezone.utc)),
     }
-
-
-@api_router.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"], include_in_schema=False)
-def serve_dashboard():
-    """Serve the single-page GIS Dashboard."""
-    possible_paths = [
-        Path(__file__).resolve().parent.parent.parent / "dashboard" / "index.html",
-        Path.cwd() / "dashboard" / "index.html",
-    ]
-    for path in possible_paths:
-        if path.is_file():
-            return HTMLResponse(content=path.read_text(encoding="utf-8"))
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dashboard index.html not found")
 
 
 # ---------------------------------------------------------------------------
