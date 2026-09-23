@@ -189,3 +189,42 @@ class TestDashboardIntegration(unittest.TestCase):
             self.assertTrue(18.49 <= lat <= 18.55, f"Latitude {lat} out of Pune range")
             self.assertTrue(73.81 <= lon <= 73.87, f"Longitude {lon} out of Pune range")
 
+    def test_incident_report_evidence_image_attached(self) -> None:
+        """Verify evidence image received from bus simulator is attached to fused incident and served."""
+        # 1. Re-seed demo data and check incident evidence
+        self.client.post("/api/v1/demo/seed")
+        inc_res = self.client.get("/incidents/INC-000001")
+        self.assertEqual(inc_res.status_code, 200)
+        inc_data = inc_res.json()
+        self.assertIn("evidence_image", inc_data)
+        self.assertEqual(inc_data["evidence_image"], "runtime/evidence/EVT-000001.jpg")
+
+        # 2. Ingest an event from actual bus simulator with evidence_image
+        event_payload = {
+            "event_id": "EVT-099999",
+            "bus_id": "BUS-001",
+            "event_type": "POTHOLE",
+            "timestamp": "2026-09-24T12:00:00Z",
+            "latitude": 18.5204,
+            "longitude": 73.8567,
+            "confidence": 0.96,
+            "severity": "HIGH",
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
+            "source": "actual_bus_simulator",
+            "connectivity_state": "ONLINE",
+        }
+        ingest_res = self.client.post("/events", json=event_payload)
+        self.assertEqual(ingest_res.status_code, 201)
+
+        # 3. Retrieve incidents and verify newly created incident has evidence_image
+        inc_list = self.client.get("/incidents").json()["incidents"]
+        matching = [i for i in inc_list if i.get("event_id") == "EVT-099999"]
+        self.assertTrue(len(matching) >= 1)
+        self.assertEqual(matching[0]["evidence_image"], "runtime/evidence/EVT-000001.jpg")
+
+        # 4. Verify static route returns the image
+        img_res = self.client.get(f"/{matching[0]['evidence_image']}")
+        self.assertEqual(img_res.status_code, 200)
+        self.assertIn("image/jpeg", img_res.headers.get("content-type", ""))
+
+

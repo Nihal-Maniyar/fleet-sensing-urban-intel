@@ -398,6 +398,8 @@ def seed_demo_data_in_memory() -> dict:
     demo_incidents = [
         {
             "incident_id": "INC-000001",
+            "event_id": "EVT-000001",
+            "evidence_image": "runtime/evidence/EVT-000001.jpg",
             "event_type": "POTHOLE",
             "status": "VERIFIED",
             "latitude": 18.5196,
@@ -416,6 +418,8 @@ def seed_demo_data_in_memory() -> dict:
         },
         {
             "incident_id": "INC-000002",
+            "event_id": "EVT-000003",
+            "evidence_image": "runtime/evidence/EVT-000003.jpg",
             "event_type": "GARBAGE",
             "status": "VERIFIED",
             "latitude": 18.5085,
@@ -434,6 +438,8 @@ def seed_demo_data_in_memory() -> dict:
         },
         {
             "incident_id": "INC-000003",
+            "event_id": "EVT-000004",
+            "evidence_image": "runtime/evidence/EVT-000004.jpg",
             "event_type": "TRAFFIC_OBSTRUCTION",
             "status": "PENDING",
             "latitude": 18.5255,
@@ -452,6 +458,8 @@ def seed_demo_data_in_memory() -> dict:
         },
         {
             "incident_id": "INC-000004",
+            "event_id": "EVT-000005",
+            "evidence_image": "runtime/evidence/EVT-000005.jpg",
             "event_type": "PEDESTRIAN_RISK",
             "status": "VERIFIED",
             "latitude": 18.5218,
@@ -708,6 +716,8 @@ def get_incidents_geojson():
                 "department": inc.get("department", "MUNICIPAL_CORPORATION"),
                 "locality": inc.get("locality", "Pune Transit Corridor"),
                 "ticket_id": inc.get("ticket_id"),
+                "event_id": inc.get("event_id"),
+                "evidence_image": inc.get("evidence_image"),
                 "description": inc.get("description", ""),
                 "first_observed_at": inc.get("first_observed_at"),
                 "last_observed_at": inc.get("last_observed_at"),

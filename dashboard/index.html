@@ -932,7 +932,21 @@ function renderEvidenceImage(inc) {
   } else if (inc.event_id) {
     imgPath = `/runtime/evidence/${inc.event_id}.jpg`;
   } else {
-    imgPath = `/runtime/evidence/${inc.incident_id || 'EVT-010001'}.jpg`;
+    // Check linked ticket for evidence_image
+    const ticket = (state.tickets || []).find(t => t.incident_id === inc.incident_id || (inc.ticket_id && t.ticket_id === inc.ticket_id));
+    if (ticket && ticket.evidence_image) {
+      imgPath = ticket.evidence_image.startsWith('/') ? ticket.evidence_image : '/' + ticket.evidence_image;
+    } else {
+      // Check recent events from this bus or corridor
+      const ev = (state.events || []).find(e => (inc.buses && inc.buses.includes(e.bus_id)) || e.bus_id === inc.bus_id);
+      if (ev && ev.evidence_image) {
+        imgPath = ev.evidence_image.startsWith('/') ? ev.evidence_image : '/' + ev.evidence_image;
+      } else if (ev && ev.event_id) {
+        imgPath = `/runtime/evidence/${ev.event_id}.jpg`;
+      } else {
+        imgPath = `/runtime/evidence/${inc.incident_id || 'EVT-000001'}.jpg`;
+      }
+    }
   }
 
   const type = inc.event_type || inc.type || 'POTHOLE';
@@ -1650,6 +1664,9 @@ function handleWsMessage(msg) {
         updateMapMarkers();
         if (state.route === 'dashboard' || state.route === 'incidents' || state.route === 'fusion') {
           renderPage();
+        }
+        if (state.selectedIncidentId === msg.data.incident_id && document.getElementById('drawer') && document.getElementById('drawer').classList.contains('open')) {
+          openIncidentDrawer(msg.data.incident_id);
         }
       }
       break;
