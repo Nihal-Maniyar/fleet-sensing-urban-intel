@@ -6,1745 +6,1745 @@
 <title>Fleet Sensing Urban Intel — Pune Mobility GIS Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 
-<!-- Leaflet GIS Engine (CDN with mirror fallback) -->
+<!-- Leaflet GIS Engine -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <style>
-/* ============ DESIGN TOKENS (per frontend-design/SKILL.md) ============ */
+/* ============ TOKENS ============ */
 :root {
-  --bg-canvas: #070a12;
-  --bg-surface: #0e1526;
-  --bg-surface-raised: #151f36;
-  --bg-surface-sunken: #090e1a;
-
-  --border: #1e293b;
-  --border-light: #2c3c58;
-  --border-active: #0284c7;
-
-  --ink-primary: #f8fafc;
-  --ink-secondary: #94a3b8;
-  --ink-dim: #64748b;
-
-  --road-amber: #f59e0b;
-  --road-amber-bg: rgba(245, 158, 11, 0.12);
-  --hazard-red: #ef4444;
-  --hazard-red-bg: rgba(239, 68, 68, 0.14);
-  --transit-green: #10b981;
-  --transit-green-bg: rgba(16, 185, 129, 0.12);
-  --telemetry-cyan: #06b6d4;
-  --telemetry-cyan-bg: rgba(6, 182, 212, 0.12);
-  --civic-purple: #8b5cf6;
-  --civic-purple-bg: rgba(139, 92, 246, 0.12);
-
   --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  --radius: 8px;
-  --radius-sm: 5px;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --ink: #101826;
+  --ink-soft: #5B6472;
+  --ink-faint: #8A93A3;
+  --surface: #FFFFFF;
+  --surface-sunken: #F3F5F9;
+  --surface-raised: #FFFFFF;
+  --border: #E1E5EC;
+  --border-soft: #EDF0F4;
 
+  --navy: #0E1B2C;
+  --navy-soft: #16283F;
+  --navy-line: #24384F;
+
+  --teal: #1C6E8C;
+  --teal-ink: #0F4A61;
+  --teal-soft: #E3F0F4;
+
+  --amber: #CC7A2E;
+  --amber-soft: #FBEEDD;
+
+  --green: #2E7D53;
+  --green-soft: #E3F3E9;
+
+  --red: #B94A3B;
+  --red-soft: #F8E5E2;
+
+  --shadow-sm: 0 1px 3px rgba(16, 24, 38, 0.06);
+  --shadow-md: 0 6px 20px rgba(16, 24, 38, 0.08);
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #EDEFF3; --ink-soft: #AEB6C4; --ink-faint: #7A8497;
+    --surface: #141B27; --surface-sunken: #0F1622; --surface-raised: #1A2331;
+    --border: #263042; --border-soft: #1E2735;
+    --teal-soft: #173038; --amber-soft: #2E2416; --green-soft: #16281E; --red-soft: #2C1B18;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #EDEFF3; --ink-soft: #AEB6C4; --ink-faint: #7A8497;
+  --surface: #141B27; --surface-sunken: #0F1622; --surface-raised: #1A2331;
+  --border: #263042; --border-soft: #1E2735;
+  --teal-soft: #173038; --amber-soft: #2E2416; --green-soft: #16281E; --red-soft: #2C1B18;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: var(--font-body); background: var(--bg-canvas); color: var(--ink-primary); -webkit-font-smoothing: antialiased; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
 button { font-family: inherit; cursor: pointer; border: none; }
 a { color: inherit; text-decoration: none; }
-.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
-/* SVG Icon utilities */
-.icon { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; flex-shrink: 0; }
-.icon svg { width: 100%; height: 100%; stroke: currentColor; }
+/* ============ APP SHELL ============ */
+.app { display: flex; min-height: 100%; }
 
-/* ============ LAYOUT SHELL ============ */
-.shell { display: flex; height: 100vh; overflow: hidden; }
-
-/* Sidebar */
+/* ---- Sidebar ---- */
 .sidebar {
-  width: 270px; min-width: 270px; background: var(--bg-surface);
-  border-right: 1px solid var(--border); display: flex; flex-direction: column;
-  padding: 16px 14px; z-index: 50;
-}
-.brand-header {
-  display: flex; align-items: center; gap: 12px; padding: 4px 6px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.brand-crest {
-  width: 38px; height: 38px; border-radius: var(--radius);
-  background: linear-gradient(135deg, #0284c7, #0f172a);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  display: flex; align-items: center; justify-content: center;
-  color: #38bdf8; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.3);
-}
-.brand-titles h2 { font-family: var(--font-display); font-size: 14.5px; font-weight: 700; color: var(--ink-primary); letter-spacing: -0.01em; }
-.brand-titles p { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
-
-/* Nav items */
-.nav-group { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
-.nav-link {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
-  color: var(--ink-secondary); background: transparent; text-align: left; transition: all 0.15s ease;
-}
-.nav-link .nav-left { display: flex; align-items: center; gap: 9px; }
-.nav-link:hover { background: var(--bg-surface-raised); color: var(--ink-primary); }
-.nav-link.active { background: rgba(6, 182, 212, 0.12); color: var(--telemetry-cyan); font-weight: 600; border-left: 3px solid var(--telemetry-cyan); }
-.nav-link .badge-count {
-  font-family: var(--font-mono); font-size: 11px; padding: 2px 7px;
-  border-radius: 999px; background: var(--bg-surface-raised); color: var(--ink-secondary);
-}
-.nav-link.active .badge-count { background: var(--telemetry-cyan); color: #000; font-weight: 700; }
-
-/* Simulator Trigger Panel in Sidebar */
-.sim-controls-box {
-  background: var(--bg-surface-sunken); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px; margin-top: 12px;
-}
-.sim-header {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 9px;
-  font-family: var(--font-display); font-size: 11px; text-transform: uppercase;
-  color: var(--road-amber); letter-spacing: 0.05em; font-weight: 700;
-}
-.sim-btn-stack { display: flex; flex-direction: column; gap: 6px; }
-.sim-btn {
-  background: var(--bg-surface-raised); border: 1px solid var(--border);
-  color: var(--ink-primary); padding: 8px 10px; border-radius: var(--radius-sm);
-  font-size: 11.5px; font-weight: 500; text-align: left; display: flex; align-items: center;
-  justify-content: space-between; transition: all 0.15s ease;
-}
-.sim-btn .btn-text-group { display: flex; align-items: center; gap: 7px; }
-.sim-btn:hover { background: var(--border); border-color: var(--border-light); transform: translateY(-1px); }
-.sim-btn:active { transform: translateY(0); }
-.sim-btn.primary { background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.35); color: var(--road-amber); font-weight: 600; }
-.sim-btn.primary:hover { background: rgba(245, 158, 11, 0.22); }
-
-/* Sidebar Footer */
-.sidebar-footer {
-  margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border);
-  font-size: 10.5px; color: var(--ink-dim); line-height: 1.5;
-}
-
-/* Main Workspace */
-.workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
-
-/* Header Console Bar */
-.topbar {
-  height: 56px; background: var(--bg-surface); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+  width: 240px; min-width: 240px;
+  background: var(--navy);
+  color: #DDE4EE;
+  display: flex; flex-direction: column;
+  padding: 18px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  position: sticky; top: 0; align-self: flex-start; height: 100vh;
   z-index: 40;
 }
-.topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
-.system-tag {
-  font-size: 11px; padding: 3px 8px; border-radius: 999px;
-  background: var(--bg-surface-raised); color: var(--ink-secondary); border: 1px solid var(--border);
+.brand { display: flex; align-items: center; gap: 11px; padding: 6px 10px 20px; border-bottom: 1px solid var(--navy-line); }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(155deg, var(--teal), #123246);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #E3F0F4;
 }
+.brand-mark svg { width: 20px; height: 20px; }
+.brand-text .t1 { font-family: var(--font-display); font-weight: 700; font-size: 14.5px; line-height: 1.15; color: #F3F6FA; }
+.brand-text .t2 { font-size: 10.5px; color: #8FA0B8; letter-spacing: .02em; margin-top: 2px; }
 
-.topbar-center { display: flex; align-items: center; gap: 8px; }
-.road-snap-pill {
-  font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 999px;
-  background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.28);
-  color: var(--transit-green); display: flex; align-items: center; gap: 6px;
+.nav { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 8px;
+  color: #B7C2D2; background: transparent; border: none; width: 100%; text-align: left;
+  font-size: 13.5px; font-weight: 500;
+  transition: background .15s ease, color .15s ease;
 }
-.road-snap-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--transit-green); box-shadow: 0 0 6px var(--transit-green); }
-
-.topbar-right { display: flex; align-items: center; gap: 12px; }
-.ws-indicator {
-  display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-family: var(--font-mono);
-  padding: 4px 10px; border-radius: 999px; background: var(--bg-surface-sunken);
-  border: 1px solid var(--border); color: var(--ink-secondary);
+.nav-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: .9; }
+.nav-item:hover { background: var(--navy-soft); color: #F0F3F8; }
+.nav-item.active { background: var(--teal); color: #fff; }
+.nav-item .cnt {
+  margin-left: auto; font-size: 10.5px; font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.14); padding: 1px 7px; border-radius: 999px; color: #EAF0F6;
 }
-.ws-indicator.live { color: var(--transit-green); border-color: rgba(16, 185, 129, 0.3); }
-.ws-indicator.live .pulse-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: var(--transit-green);
-  animation: wsPulse 1.8s infinite;
+.nav-item.active .cnt { background: rgba(255, 255, 255, 0.28); }
+
+.sidebar-foot {
+  margin-top: 10px; padding: 12px 12px 4px; border-top: 1px solid var(--navy-line);
+  font-size: 11px; color: #7488A0; line-height: 1.5;
 }
-@keyframes wsPulse {
-  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
-  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+.sidebar-foot b { color: #B7C2D2; }
+
+/* ---- Main column ---- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---- Topbar ---- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; align-items: center; gap: 16px;
 }
+.topbar h1 { font-family: var(--font-display); font-size: 17.5px; font-weight: 700; white-space: nowrap; }
+.topbar .sub { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; white-space: nowrap; }
+.search {
+  flex: 1; max-width: 360px; display: flex; align-items: center; gap: 8px;
+  background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 14px; color: var(--ink-faint); font-size: 12.5px;
+}
+.search input { border: none; background: transparent; color: var(--ink); width: 100%; outline: none; font-size: 12px; }
+.search svg { width: 14px; height: 14px; flex-shrink: 0; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.datasource {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px 6px 10px;
+  font-size: 11.5px; font-weight: 600; background: var(--surface-sunken); position: relative;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.dot.pulse { box-shadow: 0 0 0 0 rgba(46, 125, 83, .5); animation: pulse 2s infinite; }
+.dot.offline { background: var(--amber); }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(46, 125, 83, .45); }
+  70% { box-shadow: 0 0 0 7px rgba(46, 125, 83, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 125, 83, 0); }
+}
+.clock { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
+.iconbtn {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--surface); display: flex; align-items: center; justify-content: center; position: relative;
+}
+.iconbtn svg { width: 16px; height: 16px; color: var(--ink-soft); }
 
-.clock-display { font-family: var(--font-mono); font-size: 12px; color: var(--ink-secondary); }
+/* ---- Content ---- */
+.content { padding: 20px 24px 48px; max-width: 1440px; width: 100%; margin: 0 auto; }
+.page-head { margin-bottom: 16px; }
+.page-head h2 { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.page-head p { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; max-width: 680px; }
 
-/* Main Stage */
-.stage { flex: 1; display: flex; overflow: hidden; position: relative; }
+/* ============ COMPONENTS ============ */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: var(--shadow-sm);
+}
+.kpi .label { font-size: 11px; color: var(--ink-faint); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.kpi .value { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-top: 6px; }
+.kpi .delta { font-size: 11px; margin-top: 5px; font-weight: 600; }
+.kpi .delta.up { color: var(--green); } .kpi .delta.down { color: var(--amber); }
 
-/* Left Map Section */
-.map-pane {
-  flex: 1; position: relative; height: 100%; min-height: 520px;
-  background: #070a12; overflow: hidden;
+.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; border-bottom: 1px solid var(--border-soft);
+}
+.panel-head h3 { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+.panel-head .link { font-size: 11.5px; color: var(--teal); font-weight: 600; cursor: pointer; }
+.panel-body { padding: 16px 18px; }
+
+/* ============ LEAFLET GIS MAP ============ */
+.map-panel { margin-bottom: 16px; }
+.map-wrap {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+@media (min-height: 800px) {
+  .map-wrap {
+    height: calc(100vh - 340px);
+    min-height: 480px;
+    max-height: 680px;
+  }
 }
 #leafletMap {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  background: #070a12; z-index: 10;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background: #E8ECEF;
 }
-#fallbackVectorMap {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  display: none; z-index: 15; background: #080d1a;
+:root[data-theme="dark"] #leafletMap {
+  background: #111822;
 }
 
-/* Map Floating Overlays */
-.map-kpi-overlay {
-  position: absolute; top: 16px; left: 16px; z-index: 500;
-  display: flex; gap: 10px; pointer-events: auto;
+/* Map Overlays */
+.map-legend {
+  position: absolute; top: 12px; right: 12px; z-index: 20;
+  background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+  font-size: 11px; box-shadow: var(--shadow-sm); color: var(--ink);
 }
-.map-kpi-card {
-  background: rgba(14, 21, 38, 0.94); backdrop-filter: blur(8px);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 9px 13px; box-shadow: var(--shadow); min-width: 110px;
+:root[data-theme="dark"] .map-legend {
+  background: rgba(20, 27, 39, 0.92);
 }
-.map-kpi-card .label { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
-.map-kpi-card .num { font-family: var(--font-mono); font-size: 20px; font-weight: 700; color: var(--ink-primary); margin-top: 2px; }
+.map-legend div { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
+.map-legend span.sw { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.map-badge {
+  position: absolute; bottom: 12px; left: 12px; z-index: 20;
+  background: rgba(14, 27, 44, 0.88); backdrop-filter: blur(6px); color: #fff;
+  font-size: 11px; padding: 6px 12px; border-radius: 999px; font-family: var(--font-mono);
+  display: flex; align-items: center; gap: 8px;
+}
+.map-controls-bar {
+  position: absolute; top: 12px; left: 60px; z-index: 20;
+  display: flex; gap: 6px;
+}
+.map-ctl-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--ink);
+  box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 5px;
+}
+.map-ctl-btn:hover { background: var(--surface-sunken); }
 
-/* Map Corridor Legend */
-.map-corridor-legend {
-  position: absolute; bottom: 20px; left: 16px; z-index: 500;
-  background: rgba(14, 21, 38, 0.94); backdrop-filter: blur(8px);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 10px 14px; font-size: 11px; box-shadow: var(--shadow); max-width: 320px;
+/* Custom Leaflet Map Markers */
+.leaflet-bus-icon-wrap { background: transparent; border: none; }
+.leaflet-bus-marker {
+  position: relative; display: flex; flex-direction: column; align-items: center;
 }
-.legend-title { font-weight: 700; color: var(--ink-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; font-size: 10px; }
-.legend-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--ink-primary); font-size: 11px; }
-.legend-line { width: 16px; height: 3.5px; border-radius: 2px; flex-shrink: 0; }
-
-/* Map Controls Panel */
-.map-controls-panel {
-  position: absolute; top: 16px; right: 16px; z-index: 500;
-  background: rgba(14, 21, 38, 0.94); backdrop-filter: blur(8px);
-  border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 9px 13px; font-size: 11.5px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 7px;
+.bus-core {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #1C6E8C; color: #fff; border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s ease;
 }
-.control-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
-.control-toggle input { accent-color: var(--telemetry-cyan); }
-
-/* Right Activity & Inspector Pane */
-.activity-pane {
-  width: 440px; min-width: 440px; background: var(--bg-surface);
-  border-left: 1px solid var(--border); display: flex; flex-direction: column;
-  overflow: hidden; z-index: 30;
+.leaflet-bus-marker.offline .bus-core { background: #64748b; }
+.bus-pulse {
+  position: absolute; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(28, 110, 140, 0.35); top: -3px; left: -3px;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
 }
-.activity-tabs {
-  display: flex; border-bottom: 1px solid var(--border); background: var(--bg-surface-sunken);
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
 }
-.tab-btn {
-  flex: 1; padding: 12px 10px; font-size: 12.5px; font-weight: 600; color: var(--ink-secondary);
-  background: transparent; border-bottom: 2px solid transparent; transition: all 0.15s ease;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+.bus-pill-tag {
+  background: var(--navy); color: #fff; font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+  margin-top: 2px; white-space: nowrap; border: 1px solid rgba(255, 255, 255, 0.2);
 }
-.tab-btn:hover { color: var(--ink-primary); }
-.tab-btn.active { color: var(--telemetry-cyan); border-bottom-color: var(--telemetry-cyan); background: var(--bg-surface); }
 
-.tab-content { flex: 1; overflow-y: auto; padding: 14px; }
-
-/* Defect / Incident Cards */
-.card-stack { display: flex; flex-direction: column; gap: 10px; }
-.defect-card {
-  background: var(--bg-surface-raised); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px 14px; cursor: pointer;
-  transition: all 0.15s ease; position: relative;
+.leaflet-incident-icon-wrap { background: transparent; border: none; }
+.leaflet-incident-marker {
+  position: relative; width: 26px; height: 26px; cursor: pointer;
 }
-.defect-card:hover { border-color: var(--border-light); transform: translateY(-1px); box-shadow: var(--shadow); }
-.defect-card.selected { border-color: var(--telemetry-cyan); background: rgba(6, 182, 212, 0.06); }
-
-.card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.card-top .id-tag { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--ink-primary); }
-.badge-status {
-  font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
+.pin-ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  background: var(--pin-color, #B94A3B); opacity: 0.2;
+  animation: pulse-ring 2.4s infinite;
 }
-.st-candidate { background: rgba(245, 158, 11, 0.18); color: var(--road-amber); }
-.st-verified { background: rgba(239, 68, 68, 0.18); color: var(--hazard-red); }
-.st-resolved { background: rgba(16, 185, 129, 0.18); color: var(--transit-green); }
-
-.card-title { font-size: 13.5px; font-weight: 600; color: var(--ink-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 7px; }
-.card-locality { font-size: 11.5px; color: var(--ink-dim); margin-bottom: 8px; }
-
-.card-metrics {
-  display: flex; align-items: center; justify-content: space-between;
-  border-top: 1px solid var(--border); padding-top: 8px; font-size: 11px; color: var(--ink-secondary);
+.pin-head {
+  width: 24px; height: 24px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin-color, #B94A3B); border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
-.card-metrics b { color: var(--ink-primary); font-family: var(--font-mono); }
-.road-tag { color: var(--transit-green); font-size: 10.5px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
-
-/* Detail Drawer (Inspection) */
-.drawer-overlay {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.68);
-  backdrop-filter: blur(4px); z-index: 1000; display: none;
+.pin-type-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #fff;
+  transform: rotate(45deg);
 }
-.drawer-overlay.open { display: block; }
+.pin-verified-badge {
+  position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
+  background: #10b981; color: #fff; font-size: 8px; font-weight: 900;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 1px solid #fff;
+}
 
+/* ============ TABLES & BADGES ============ */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  text-align: left; font-size: 10.5px; color: var(--ink-faint); font-weight: 700;
+  padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td { padding: 11px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+tbody tr { transition: background .12s ease; cursor: pointer; }
+tbody tr:hover { background: var(--surface-sunken); }
+.mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.badge.sev-high { background: var(--red-soft); color: var(--red); }
+.badge.sev-medium { background: var(--amber-soft); color: var(--amber); }
+.badge.sev-low { background: var(--green-soft); color: var(--green); }
+.badge.st-reported { background: var(--amber-soft); color: var(--amber); }
+.badge.st-acknowledged { background: var(--teal-soft); color: var(--teal-ink); }
+.badge.st-inprogress { background: #E7E1F7; color: #5B3FA8; }
+.badge.st-resolved { background: var(--green-soft); color: var(--green); }
+.badge.type { background: var(--surface-sunken); color: var(--ink-soft); border: 1px solid var(--border); }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+select, .btn, input[type=text] {
+  font-family: inherit; font-size: 12px; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; background: var(--surface); color: var(--ink);
+}
+.btn { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+.btn.primary:hover { background: var(--teal-ink); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 11px; font-size: 11.5px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ============ DRAWER ============ */
+.overlay {
+  position: fixed; inset: 0; background: rgba(10, 16, 26, 0.45); z-index: 60;
+  opacity: 0; pointer-events: none; transition: opacity .18s ease;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
 .drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 490px; max-width: 92vw;
-  background: var(--bg-surface); border-left: 1px solid var(--border);
-  box-shadow: -6px 0 30px rgba(0, 0, 0, 0.7); z-index: 1001;
-  transform: translateX(100%); transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 94vw); z-index: 61;
+  background: var(--surface); box-shadow: -12px 0 30px rgba(10, 16, 26, 0.2);
+  transform: translateX(100%); transition: transform .22s ease;
   display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .drawer.open { transform: translateX(0); }
+.drawer-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
+.drawer-head .x { margin-left: auto; }
+.drawer-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.drawer-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
 
-.drawer-head {
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.drawer-head h3 { font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--ink-primary); }
-.close-btn { background: transparent; color: var(--ink-secondary); font-size: 18px; padding: 4px 8px; border-radius: 4px; }
-.close-btn:hover { background: var(--bg-surface-raised); color: #fff; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 12.5px; }
+.kv dt { color: var(--ink-faint); font-weight: 600; }
+.kv dd { font-weight: 600; }
 
-.drawer-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+/* Evidence Container & HUD */
+.evidence-container {
+  position: relative; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--surface-sunken);
+  aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center;
+}
+.evidence-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.evidence-fallback { width: 100%; height: 100%; display: block; }
+.evidence-hud-overlay {
+  position: absolute; bottom: 8px; left: 8px; right: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(14, 27, 44, 0.82); backdrop-filter: blur(4px);
+  padding: 4px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; color: #fff;
+}
+.evidence-hud-conf { color: #10b981; font-weight: 700; }
 
-.evidence-wrapper {
-  background: var(--bg-surface-sunken); border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden; position: relative;
+.stepper { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
+.step { display: flex; gap: 10px; position: relative; padding-bottom: 18px; }
+.step:last-child { padding-bottom: 0; }
+.step .node { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--border); background: var(--surface); flex-shrink: 0; margin-top: 1px; z-index: 1; }
+.step.done .node { background: var(--teal); border-color: var(--teal); }
+.step.current .node { background: #fff; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+.step:not(:last-child)::before {
+  content: ''; position: absolute; left: 7.5px; top: 16px; bottom: 0; width: 1.5px; background: var(--border);
 }
-.evidence-img { width: 100%; height: 210px; object-fit: cover; display: block; background: #0b111e; }
-.evidence-overlay-tag {
-  position: absolute; bottom: 8px; left: 8px;
-  background: rgba(14, 21, 38, 0.88); backdrop-filter: blur(4px);
-  border: 1px solid var(--border); padding: 3px 8px; border-radius: 4px;
-  font-family: var(--font-mono); font-size: 10.5px; color: var(--transit-green);
-}
+.step.done:not(:last-child)::before { background: var(--teal); }
+.step .stitle { font-size: 12.5px; font-weight: 700; }
+.step .stime { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
 
-.coord-comparison {
-  background: var(--bg-surface-sunken); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px;
-}
-.coord-row { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; padding: 4px 0; }
-.coord-row.snapped { color: var(--transit-green); font-weight: 600; }
-.coord-row.drift { color: var(--ink-dim); }
+.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--ink-faint); margin: 16px 0 8px; letter-spacing: .03em; }
+.section-title:first-child { margin-top: 0; }
 
-.stepper { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
-.step-item { display: flex; gap: 12px; position: relative; }
-.step-item:not(:last-child)::after {
-  content: ''; position: absolute; left: 11px; top: 24px; bottom: -12px;
-  width: 2px; background: var(--border);
-}
-.step-item.done:not(:last-child)::after { background: var(--transit-green); }
-.step-node {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--bg-surface-raised);
-  border: 2px solid var(--border); display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; color: var(--ink-dim); z-index: 2;
-}
-.step-item.done .step-node { background: var(--transit-green); border-color: var(--transit-green); color: #000; }
-.step-item.active .step-node { background: var(--road-amber); border-color: var(--road-amber); color: #000; }
-.step-info .stitle { font-size: 12.5px; font-weight: 600; color: var(--ink-primary); }
-.step-info .stime { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-dim); margin-top: 2px; }
+/* Buses Grid */
+.bus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.bus-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+.bus-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.bus-card .id { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+.bus-card .route { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+.status-pill { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; display: flex; align-items: center; gap: 5px; }
+.status-pill.online { background: var(--green-soft); color: var(--green); }
+.status-pill.offline { background: var(--surface-sunken); color: var(--ink-faint); border: 1px solid var(--border); }
+.bus-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; font-size: 11.5px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.bus-meta div span { display: block; color: var(--ink-faint); font-size: 10px; margin-bottom: 2px; }
 
-.drawer-foot {
-  padding: 14px 20px; border-top: 1px solid var(--border);
-  display: flex; gap: 10px; background: var(--bg-surface-sunken);
-}
-.btn {
-  padding: 9px 16px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 600;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;
-}
-.btn.primary { background: var(--telemetry-cyan); color: #000; font-weight: 700; flex: 1; }
-.btn.primary:hover { background: #38bdf8; }
-.btn.secondary { background: var(--bg-surface-raised); border: 1px solid var(--border); color: var(--ink-primary); }
-.btn.secondary:hover { background: var(--border); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Kanban Board */
+.kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kcol-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 10px; }
+.kcol-head h4 { font-size: 12px; font-weight: 700; }
+.kcol-head .n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+.kcol-body { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
+.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.1s ease, box-shadow 0.1s ease; }
+.tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.tcard .tid { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--teal-ink); }
+.tcard .ttype { font-size: 12.5px; font-weight: 600; margin-top: 4px; }
+.tcard .tloc { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.tcard .tfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.sla { font-size: 10px; font-family: var(--font-mono); color: var(--ink-faint); }
 
-/* Custom Leaflet Markers */
-.custom-road-marker {
-  width: 30px; height: 30px; border-radius: 50%; display: flex;
-  align-items: center; justify-content: center;
-  color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); border: 2px solid #fff;
-  position: relative; cursor: pointer;
-}
-.custom-road-marker svg { width: 16px; height: 16px; }
-.custom-road-marker.pothole { background: var(--hazard-red); }
-.custom-road-marker.garbage { background: var(--transit-green); }
-.custom-road-marker.traffic_obstruction { background: var(--road-amber); }
-.custom-road-marker.pedestrian_risk { background: var(--civic-purple); }
+/* Fusion queue */
+.fusion-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface); margin-bottom: 10px; }
+.fusion-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.obs-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--border-soft); }
+.obs-row:first-of-type { border-top: none; }
+.busdot { width: 26px; height: 26px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-ink); font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-.custom-road-marker .pulse-ring {
-  position: absolute; inset: -6px; border-radius: 50%;
-  border: 2px solid var(--hazard-red); opacity: 0.8;
-  animation: markerPulse 1.6s cubic-bezier(0.24, 0, 0.38, 1) infinite;
-}
-@keyframes markerPulse {
-  0% { transform: scale(0.8); opacity: 0.9; }
-  100% { transform: scale(1.9); opacity: 0; }
-}
+/* Reports */
+.grid-2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; align-items: start; }
+.bars { display: flex; align-items: flex-end; gap: 12px; height: 170px; padding-top: 10px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bar { width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, var(--teal), var(--teal-ink)); position: relative; min-height: 4px; }
+.bar-col .lab { font-size: 10px; color: var(--ink-faint); text-align: center; }
+.bar-col .val { font-size: 10.5px; font-weight: 700; font-family: var(--font-mono); }
 
-.bus-fleet-marker {
-  background: var(--bg-surface); color: var(--telemetry-cyan);
-  border: 1.5px solid var(--telemetry-cyan); border-radius: 6px;
-  padding: 3px 8px; font-family: var(--font-mono); font-size: 11px;
-  font-weight: 700; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-  display: flex; align-items: center; gap: 5px;
-}
-.bus-fleet-marker.offline { color: var(--hazard-red); border-color: var(--hazard-red); opacity: 0.6; }
-.bus-fleet-marker .bus-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.empty { text-align: center; padding: 36px 10px; color: var(--ink-faint); font-size: 12.5px; line-height: 1.5; }
 
-/* Toast Notifications */
-.toast-container {
-  position: fixed; bottom: 20px; right: 460px; z-index: 2000;
-  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+@media (max-width: 960px) {
+  .sidebar { display: none; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .kanban { grid-template-columns: 1fr 1fr; }
+  .search { display: none; }
 }
-.toast {
-  background: rgba(14, 21, 38, 0.96); backdrop-filter: blur(8px);
-  border: 1px solid var(--telemetry-cyan); border-radius: var(--radius);
-  padding: 10px 14px; font-size: 12px; color: var(--ink-primary);
-  box-shadow: var(--shadow); display: flex; align-items: center; gap: 8px;
-  animation: slideUp 0.25s ease; pointer-events: auto;
-}
-@keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 </head>
 <body>
+<div class="app">
 
-<div class="shell">
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="brand-header">
-      <div class="brand-crest">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="2" x2="12" y2="12"/>
-          <line x1="12" y1="12" x2="19" y2="19"/>
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
         </svg>
       </div>
-      <div class="brand-titles">
-        <h2>PMC Mobility GIS</h2>
-        <p>Beyonders Urban Intel</p>
+      <div class="brand-text">
+        <div class="t1">Fleet Sensing<br>Urban Intel</div>
+        <div class="t2">Pune Municipal Pilot</div>
       </div>
     </div>
-
-    <!-- Navigation -->
-    <nav class="nav-group" id="navGroup">
-      <button class="nav-link active" data-tab="hazards" onclick="switchTab('hazards')">
-        <span class="nav-left">
-          <span class="icon" style="width:16px;height:16px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </span>
-          <span>Road Hazards</span>
-        </span>
-        <span class="badge-count" id="badgeHazards">0</span>
-      </button>
-      <button class="nav-link" data-tab="tickets" onclick="switchTab('tickets')">
-        <span class="nav-left">
-          <span class="icon" style="width:16px;height:16px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
-          </span>
-          <span>Civic Tickets</span>
-        </span>
-        <span class="badge-count" id="badgeTickets">0</span>
-      </button>
-      <button class="nav-link" data-tab="fleet" onclick="switchTab('fleet')">
-        <span class="nav-left">
-          <span class="icon" style="width:16px;height:16px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2L21 10H3l-1.2 2.8c-.1.4-.2.8-.2 1.2 0 .4.1.8.2 1.2L3 18h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>
-          </span>
-          <span>Fleet Telemetry</span>
-        </span>
-        <span class="badge-count" id="badgeFleet">0</span>
-      </button>
-      <button class="nav-link" data-tab="events" onclick="switchTab('events')">
-        <span class="nav-left">
-          <span class="icon" style="width:16px;height:16px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          </span>
-          <span>Live Events</span>
-        </span>
-        <span class="badge-count" id="badgeEvents">0</span>
-      </button>
-    </nav>
-
-    <!-- Interactive Simulator Launcher Box -->
-    <div class="sim-controls-box">
-      <div class="sim-header">
-        <span class="icon" style="width:14px;height:14px;">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        </span>
-        <span>Simulation Triggers</span>
-      </div>
-      <div class="sim-btn-stack">
-        <button class="sim-btn primary" onclick="triggerScenario('dual_bus')">
-          <span class="btn-text-group">
-            <span class="icon" style="width:12px;height:12px;"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
-            <span>Dual-Bus Corroboration</span>
-          </span>
-          <span class="mono" style="font-size:10px;color:var(--road-amber);">FC Rd</span>
-        </button>
-        <button class="sim-btn" onclick="triggerScenario('offline_replay')">
-          <span class="btn-text-group">
-            <span class="icon" style="width:12px;height:12px;"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
-            <span>Offline WAL Replay</span>
-          </span>
-          <span class="mono" style="font-size:10px;color:var(--ink-dim);">Tunnel</span>
-        </button>
-        <button class="sim-btn" onclick="triggerScenario('resolution')">
-          <span class="btn-text-group">
-            <span class="icon" style="width:12px;height:12px;"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
-            <span>Post-Repair Resolution</span>
-          </span>
-          <span class="mono" style="font-size:10px;color:var(--transit-green);">Verify</span>
-        </button>
-        <button class="sim-btn" onclick="triggerScenario('seed')">
-          <span class="btn-text-group">
-            <span class="icon" style="width:12px;height:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg></span>
-            <span>Reset & Seed Pune</span>
-          </span>
-          <span class="mono" style="font-size:10px;color:var(--telemetry-cyan);">Corridors</span>
-        </button>
-      </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-foot">
+      Prototype build for <b>SIH 2026</b><br>
+      Pune Corridor · YOLO + ByteTrack Edge AI
     </div>
+  </nav>
 
-    <!-- Fleet Status Footer -->
-    <div class="sidebar-footer">
-      <div>Active Fleet: <span class="mono" style="color:var(--telemetry-cyan);font-weight:600;">BUS-001</span> to <span class="mono">BUS-006</span></div>
-      <div style="margin-top:2px;">Civic Tickets: <span class="mono" style="color:var(--road-amber);">POT-2026-</span> Series</div>
-    </div>
-  </aside>
-
-  <!-- WORKSPACE -->
-  <main class="workspace">
-    <!-- Topbar Header -->
+  <!-- ============ MAIN ============ -->
+  <div class="main">
     <header class="topbar">
-      <div class="topbar-left">
-        <span class="topbar-title">Pune Road Operations Control Room</span>
-        <span class="system-tag">Contract v1</span>
+      <div>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="sub" id="pageSub">Fleet-wide civic sensing overview</div>
       </div>
-
-      <div class="topbar-center">
-        <div class="road-snap-pill">
-          <span class="dot"></span>
-          <span>100% Road-Aligned Snapping Active</span>
-        </div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="globalSearch" placeholder="Search incidents, tickets, buses…" oninput="handleGlobalSearch(this.value)">
       </div>
-
       <div class="topbar-right">
-        <div class="ws-indicator live" id="wsBadge">
-          <span class="pulse-dot"></span>
-          <span id="wsText">LIVE WEBSOCKET</span>
+        <div class="datasource" id="dsIndicator">
+          <span class="dot pulse"></span> Connecting...
         </div>
-        <div class="clock-display" id="clockDisplay">--:--:-- UTC</div>
+        <div class="clock" id="clock">—</div>
+        <button class="iconbtn" id="themeBtn" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
       </div>
     </header>
 
-    <!-- Main Stage: Map + Activity Inspector -->
-    <div class="stage">
-      <!-- Left Map Section -->
-      <section class="map-pane">
-        <!-- Interactive Leaflet Map Container -->
-        <div id="leafletMap"></div>
-
-        <!-- Standalone Canvas/Vector GIS Fallback (Activated if Leaflet CDN fails or in strict offline mode) -->
-        <canvas id="fallbackVectorMap"></canvas>
-
-        <!-- Floating Map KPIs -->
-        <div class="map-kpi-overlay">
-          <div class="map-kpi-card">
-            <div class="label">Verified Hazards</div>
-            <div class="num" id="kpiIncidents" style="color:var(--hazard-red);">0</div>
-          </div>
-          <div class="map-kpi-card">
-            <div class="label">Open Tickets</div>
-            <div class="num" id="kpiTickets" style="color:var(--road-amber);">0</div>
-          </div>
-          <div class="map-kpi-card">
-            <div class="label">Active Buses</div>
-            <div class="num" id="kpiBuses" style="color:var(--telemetry-cyan);">0</div>
-          </div>
-          <div class="map-kpi-card">
-            <div class="label">Road Snapped</div>
-            <div class="num" style="color:var(--transit-green);">100%</div>
-          </div>
-        </div>
-
-        <!-- Corridor Legend -->
-        <div class="map-corridor-legend">
-          <div class="legend-title">Pune Transit Corridors</div>
-          <div class="legend-row">
-            <div class="legend-line" style="background:#06b6d4;"></div>
-            <span>FC Road (Deccan – Agriculture College)</span>
-          </div>
-          <div class="legend-row">
-            <div class="legend-line" style="background:#10b981;"></div>
-            <span>JM Road (Balgandharva – Sancheti)</span>
-          </div>
-          <div class="legend-row">
-            <div class="legend-line" style="background:#f59e0b;"></div>
-            <span>Karve Road (Deccan – Paud Phata)</span>
-          </div>
-          <div class="legend-row">
-            <div class="legend-line" style="background:#8b5cf6;"></div>
-            <span>Shivaji Central (Swargate – PMC)</span>
-          </div>
-        </div>
-
-        <!-- Map Layer Controls -->
-        <div class="map-controls-panel">
-          <label class="control-toggle">
-            <input type="checkbox" id="chkRoutes" checked onchange="toggleLayer('routes', this.checked)">
-            <span>Road Corridors</span>
-          </label>
-          <label class="control-toggle">
-            <input type="checkbox" id="chkDrift" checked onchange="toggleLayer('drift', this.checked)">
-            <span>GNSS Satellite Drift Vectors</span>
-          </label>
-          <label class="control-toggle">
-            <input type="checkbox" id="chkBuses" checked onchange="toggleLayer('buses', this.checked)">
-            <span>Live Bus Fleet</span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Right Activity & Feed Pane -->
-      <aside class="activity-pane">
-        <div class="activity-tabs">
-          <button class="tab-btn active" id="tabBtnHazards" onclick="switchTab('hazards')">
-            <span class="icon" style="width:13px;height:13px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
-            <span>Hazards</span>
-          </button>
-          <button class="tab-btn" id="tabBtnTickets" onclick="switchTab('tickets')">
-            <span class="icon" style="width:13px;height:13px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>
-            <span>Tickets</span>
-          </button>
-          <button class="tab-btn" id="tabBtnFleet" onclick="switchTab('fleet')">
-            <span class="icon" style="width:13px;height:13px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="7" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/></svg></span>
-            <span>Fleet</span>
-          </button>
-          <button class="tab-btn" id="tabBtnEvents" onclick="switchTab('events')">
-            <span class="icon" style="width:13px;height:13px;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
-            <span>Events</span>
-          </button>
-        </div>
-
-        <div class="tab-content" id="tabContent">
-          <!-- Populated by JS -->
-        </div>
-      </aside>
-    </div>
-  </main>
-</div>
-
-<!-- Defect Inspection Drawer -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
-<div class="drawer" id="drawer">
-  <div class="drawer-head">
-    <h3 id="drawerTitle">Defect Inspection</h3>
-    <button class="close-btn" onclick="closeDrawer()">
-      <span class="icon" style="width:16px;height:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-    </button>
-  </div>
-  <div class="drawer-body" id="drawerBody">
-    <!-- Populated by JS -->
-  </div>
-  <div class="drawer-foot" id="drawerFoot">
-    <!-- Action buttons -->
+    <main class="content" id="content"></main>
   </div>
 </div>
 
-<!-- Toast Notifications Container -->
-<div class="toast-container" id="toastContainer"></div>
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head" id="drawerHead"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
 
 <script>
-/* ============ PRE-EMBEDDED PUNE TRANSIT CORRIDORS (ZERO-NETWORK GIS RESILIENCE) ============ */
-const PRE_EMBEDDED_PUNE_GEOJSON = {
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "properties": {
-        "route_id": "ROUTE-PUNE-FC",
-        "name": "FC Road Corridor",
-        "description": "Fergusson College Road from Deccan Gymkhana to Agriculture College",
-        "color": "#06b6d4"
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [73.8418, 18.5158],
-          [73.8436, 18.5196],
-          [73.8415, 18.5235],
-          [73.8424, 18.5278],
-          [73.8450, 18.5320]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "route_id": "ROUTE-PUNE-JM",
-        "name": "JM Road Corridor",
-        "description": "Jangali Maharaj Road north-bound transit corridor",
-        "color": "#10b981"
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [73.8493, 18.5222],
-          [73.8500, 18.5255],
-          [73.8510, 18.5280],
-          [73.8525, 18.5325]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "route_id": "ROUTE-PUNE-KARVE",
-        "name": "Karve Road Corridor",
-        "description": "Karve Road arterial corridor towards Kothrud",
-        "color": "#f59e0b"
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [73.8385, 18.5135],
-          [73.8325, 18.5110],
-          [73.8268, 18.5085],
-          [73.8210, 18.5060]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "route_id": "ROUTE-PUNE-SHIVAJI",
-        "name": "Swargate to PMC Central Corridor",
-        "description": "Shivaji Road crossing central Pune historical core to PMC HQ",
-        "color": "#8b5cf6"
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [73.8580, 18.5018],
-          [73.8562, 18.5165],
-          [73.8540, 18.5218],
-          [73.8550, 18.5328]
-        ]
-      }
-    }
-  ]
-};
+/* =========================================================================
+   FLEET SENSING URBAN INTEL — REAL-TIME GIS DASHBOARD
+   SIH 2026 Beyonders | Member 5: Real-time GIS & Public Transit Intelligence
+   ========================================================================= */
 
-/* ============ STATE STORE ============ */
+/* ---------- Storage & Preferences ---------- */
+function getPref(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e) { return d; } }
+function setPref(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+/* ---------- Theme Switcher ---------- */
+(function initTheme() {
+  const saved = getPref('fsui_theme', null);
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = (cur === 'dark' || (!cur && prefersDark)) ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  setPref('fsui_theme', next);
+  if (leafletMap) updateMapTileTheme(next);
+});
+
+/* ---------- Clock ---------- */
+function tickClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  }) + ' IST';
+}
+tickClock(); setInterval(tickClock, 30000);
+
+/* =========================================================================
+   AUTHENTIC PUNE ROAD CORRIDORS & ROAD-SNAPPING (FC Road KML Data)
+   Derived directly from road_maps/ FC_Road_Pune.kml
+   ========================================================================= */
+const FC_ROAD_KML_COORDS = [
+  [18.51595, 73.84207], [18.51601, 73.84204], [18.51606, 73.84203], [18.51607, 73.84202],
+  [18.51610, 73.84199], [18.51619, 73.84197], [18.51631, 73.84193], [18.51643, 73.84189],
+  [18.51669, 73.84181], [18.51696, 73.84174], [18.51724, 73.84168], [18.51750, 73.84163],
+  [18.51757, 73.84162], [18.51830, 73.84149], [18.51836, 73.84148], [18.51898, 73.84139],
+  [18.51907, 73.84137], [18.51935, 73.84131], [18.51957, 73.84128], [18.51993, 73.84124],
+  [18.52042, 73.84117], [18.52054, 73.84116], [18.52073, 73.84114], [18.52105, 73.84108],
+  [18.52110, 73.84107], [18.52123, 73.84105], [18.52132, 73.84104], [18.52134, 73.84104],
+  [18.52198, 73.84097], [18.52203, 73.84097], [18.52263, 73.84095], [18.52363, 73.84116],
+  [18.52457, 73.84140], [18.52465, 73.84141], [18.52481, 73.84146], [18.52541, 73.84161],
+  [18.52550, 73.84163], [18.52573, 73.84170], [18.52591, 73.84175], [18.52595, 73.84176],
+  [18.52636, 73.84190], [18.52639, 73.84191], [18.52658, 73.84200], [18.52691, 73.84221],
+  [18.52717, 73.84235], [18.52735, 73.84243], [18.52740, 73.84246], [18.52743, 73.84248],
+  [18.52756, 73.84254], [18.52801, 73.84278], [18.52814, 73.84283], [18.52821, 73.84288],
+  [18.52838, 73.84297], [18.52874, 73.84316], [18.52939, 73.84351], [18.52972, 73.84368],
+  [18.52988, 73.84376], [18.52994, 73.84380], [18.53004, 73.84385], [18.53032, 73.84401],
+  [18.53124, 73.84451]
+];
+
+// Road snapping projection onto polyline
+function snapToRoad(lat, lon) {
+  if (!lat || !lon) return [18.5228, 73.8415];
+  let minDistanceSq = Infinity;
+  let bestPoint = [lat, lon];
+
+  for (let i = 0; i < FC_ROAD_KML_COORDS.length - 1; i++) {
+    const p1 = FC_ROAD_KML_COORDS[i];
+    const p2 = FC_ROAD_KML_COORDS[i + 1];
+
+    const dx = p2[0] - p1[0];
+    const dy = p2[1] - p1[1];
+    const lenSq = dx * dx + dy * dy;
+
+    if (lenSq === 0) continue;
+
+    let t = ((lat - p1[0]) * dx + (lon - p1[1]) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+
+    const projLat = p1[0] + t * dx;
+    const projLon = p1[1] + t * dy;
+
+    const distSq = (lat - projLat) * (lat - projLat) + (lon - projLon) * (lon - projLon);
+    if (distSq < minDistanceSq) {
+      minDistanceSq = distSq;
+      bestPoint = [projLat, projLon];
+    }
+  }
+
+  // Snap if within reasonable corridor vicinity (~250m)
+  if (minDistanceSq < 0.0001) {
+    return [Number(bestPoint[0].toFixed(5)), Number(bestPoint[1].toFixed(5))];
+  }
+  return [Number(lat.toFixed(5)), Number(lon.toFixed(5))];
+}
+
+/* =========================================================================
+   APPLICATION STATE (NO SEED DATA - PURE REAL-TIME LIVE STATE)
+   ========================================================================= */
 const state = {
-  activeTab: 'hazards',
-  stats: {},
+  route: 'dashboard',
+  selectedIncidentId: null,
+  buses: [],
   incidents: [],
   tickets: [],
-  fleet: [],
-  recentEvents: [],
-  routesGeoJSON: PRE_EMBEDDED_PUNE_GEOJSON,
-  selectedId: null,
-
-  leafletMap: null,
-  routesLayer: null,
-  markersLayer: null,
-  driftLayer: null,
-  busesLayer: null,
-
-  showRoutes: true,
-  showDrift: true,
-  showBuses: true,
-
-  ws: null,
-  wsReconnectTimer: null,
-  useFallbackCanvas: false,
+  events: [],
+  stats: {
+    total_incidents: 0,
+    verified_incidents: 0,
+    open_tickets: 0,
+    fleet_online: 0,
+    fleet_total: 0
+  },
+  connected: false,
+  searchTerm: '',
 };
 
-/* ============ BESPOKE SVG ICONS (ZERO EMOJIS) ============ */
+/* =========================================================================
+   NAVIGATION (Authorities removed per requirements, Settings disconnected)
+   ========================================================================= */
 const ICONS = {
-  POTHOLE: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1"/><path d="M2 18h20"/><path d="M7 14c1 2 2 3 5 3s4-1 5-3"/><circle cx="12" cy="11" r="2"/></svg>`,
-  GARBAGE: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
-  TRAFFIC_OBSTRUCTION: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 22 22 22"/><line x1="12" y1="16" x2="12" y2="16.01"/><line x1="12" y1="9" x2="12" y2="13"/></svg>`,
-  PEDESTRIAN_RISK: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="m9 20 3-6 2 3 3 5"/><path d="m6 10 3 3 3-2 3 2 3-3"/></svg>`,
-  DEFAULT_HAZARD: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-  BUS: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="18" r="2"/><circle cx="16" cy="18" r="2"/><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/></svg>`,
-  TICKET: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>`,
-  PULSE: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
-  CHECK: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
-  CLOCK: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
-  NAV: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  dashboard: '<path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/>',
+  buses: '<path d="M4 6h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M4 12h16"/><circle cx="8" cy="18.5" r="1.5"/><circle cx="16" cy="18.5" r="1.5"/><path d="M8 6V4h8v2"/>',
+  incidents: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  fusion: '<path d="M8 3v6l-5 5v7h18v-7l-5-5V3"/><path d="M8 3h8"/>',
+  tickets: '<path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 000-4z"/>',
+  reports: '<path d="M4 20V10M11 20V4M18 20v-7"/>',
 };
 
-function getDefectIcon(type) {
-  return ICONS[type] || ICONS.DEFAULT_HAZARD;
-}
+const ROUTES = [
+  { id: 'dashboard', label: 'Dashboard', sub: 'Fleet-wide civic sensing overview' },
+  { id: 'buses', label: 'Buses', sub: 'Fleet status & edge-AI health' },
+  { id: 'incidents', label: 'Incidents', sub: 'Verified & pending urban issues' },
+  { id: 'fusion', label: 'Fusion & Verification', sub: 'Multi-bus observation clustering' },
+  { id: 'tickets', label: 'Tickets', sub: 'Civic dispatch & lifecycle' },
+  { id: 'reports', label: 'Reports', sub: 'Corridor trends & resolution metrics' },
+];
 
-/* ============ PUNE ROAD CORRIDORS GEOMETRY & SNAPPING ============ */
-function projectPointOnSegment(p, p1, p2) {
-  const x = p[1], y = p[0];
-  const x1 = p1[1], y1 = p1[0];
-  const x2 = p2[1], y2 = p2[0];
-  const dx = x2 - x1, dy = y2 - y1;
-  if (dx === 0 && dy === 0) return [y1, x1];
-  const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)));
-  return [y1 + t * dy, x1 + t * dx];
-}
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = ROUTES.map(r => {
+    let countBadge = '';
+    if (r.id === 'buses' && state.buses.length) countBadge = `<span class="cnt">${state.buses.length}</span>`;
+    if (r.id === 'incidents' && state.incidents.length) countBadge = `<span class="cnt">${state.incidents.length}</span>`;
+    if (r.id === 'tickets' && state.tickets.length) countBadge = `<span class="cnt">${state.tickets.length}</span>`;
 
-function haversineMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+    return `
+      <button class="nav-item ${r.id === state.route ? 'active' : ''}" data-route="${r.id}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[r.id]}</svg>
+        <span>${r.label}</span>
+        ${countBadge}
+      </button>`;
+  }).join('');
 
-// Guarantees all markers are placed 100% strictly on top of road polylines
-function snapToRoadCorridor(lat, lng) {
-  const routes = state.routesGeoJSON || PRE_EMBEDDED_PUNE_GEOJSON;
-  if (!routes || !routes.features || routes.features.length === 0) {
-    return { coords: [lat, lng], distanceMeters: 0, routeName: 'Pune Transit Road' };
-  }
-  let bestPoint = [lat, lng];
-  let minDistance = Infinity;
-  let bestRoute = 'Pune Transit Road';
-
-  for (const feature of routes.features) {
-    const coords = feature.geometry.coordinates; // [lng, lat]
-    const routeName = feature.properties.name || 'Pune Corridor';
-    for (let i = 0; i < coords.length - 1; i++) {
-      const p1 = [coords[i][1], coords[i][0]];
-      const p2 = [coords[i+1][1], coords[i+1][0]];
-      const proj = projectPointOnSegment([lat, lng], p1, p2);
-      const d = haversineMeters(lat, lng, proj[0], proj[1]);
-      if (d < minDistance) {
-        minDistance = d;
-        bestPoint = proj;
-        bestRoute = routeName;
-      }
-    }
-  }
-
-  return {
-    coords: bestPoint,
-    distanceMeters: minDistance,
-    routeName: bestRoute
-  };
-}
-
-/* ============ INITIALIZATION & LEAFLET GIS ENGINE ============ */
-function initMap() {
-  const mapEl = document.getElementById('leafletMap');
-  if (!mapEl) return;
-
-  if (typeof L === 'undefined') {
-    console.warn("[GIS] Leaflet library not detected. Engaging Autonomous Canvas GIS Engine.");
-    initCanvasFallback();
-    return;
-  }
-
-  try {
-    const PUNE_CENTER = [18.5204, 73.8436];
-    state.leafletMap = L.map('leafletMap', {
-      center: PUNE_CENTER,
-      zoom: 14,
-      zoomControl: false,
-      attributionControl: false
+  nav.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.route = btn.dataset.route;
+      render();
     });
-
-    L.control.zoom({ position: 'bottomright' }).addTo(state.leafletMap);
-
-    // High-contrast clean dark road basemap
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
-    }).addTo(state.leafletMap);
-
-    state.routesLayer = L.layerGroup().addTo(state.leafletMap);
-    state.driftLayer = L.layerGroup().addTo(state.leafletMap);
-    state.markersLayer = L.layerGroup().addTo(state.leafletMap);
-    state.busesLayer = L.layerGroup().addTo(state.leafletMap);
-
-    // Ensure map container renders properly without 0px flexbox collapse
-    setTimeout(() => {
-      if (state.leafletMap) state.leafletMap.invalidateSize();
-    }, 150);
-    setTimeout(() => {
-      if (state.leafletMap) state.leafletMap.invalidateSize();
-    }, 450);
-    window.addEventListener('resize', () => {
-      if (state.leafletMap) state.leafletMap.invalidateSize();
-    });
-  } catch (e) {
-    console.error("[GIS] Leaflet init error:", e);
-    initCanvasFallback();
-  }
-}
-
-/* ============ AUTONOMOUS VECTOR CANVAS GIS FALLBACK ============ */
-function initCanvasFallback() {
-  state.useFallbackCanvas = true;
-  const canvas = document.getElementById('fallbackVectorMap');
-  if (!canvas) return;
-  canvas.style.display = 'block';
-
-  function resizeCanvas() {
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
-    drawCanvasMap();
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-
-    // Check hit test for incidents
-    for (const inc of state.incidents) {
-      if (!inc.latitude || !inc.longitude) continue;
-      const pt = projectGeoToCanvas(parseFloat(inc.latitude), parseFloat(inc.longitude), canvas.width, canvas.height);
-      const dist = Math.hypot(clickX - pt.x, clickY - pt.y);
-      if (dist < 18) {
-        openIncidentDetail(inc.incident_id);
-        break;
-      }
-    }
   });
 }
 
-function projectGeoToCanvas(lat, lng, width, height) {
-  // Pune corridor bounds: lat 18.500 to 18.536, lon 73.818 to 73.862
-  const minLat = 18.4980, maxLat = 18.5380;
-  const minLng = 73.8150, maxLng = 73.8650;
-  const pad = 40;
-  const x = pad + ((lng - minLng) / (maxLng - minLng)) * (width - 2 * pad);
-  const y = height - (pad + ((lat - minLat) / (maxLat - minLat)) * (height - 2 * pad));
-  return { x, y };
-}
-
-function drawCanvasMap() {
-  if (!state.useFallbackCanvas) return;
-  const canvas = document.getElementById('fallbackVectorMap');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-
-  ctx.fillStyle = '#080d1a';
-  ctx.fillRect(0, 0, w, h);
-
-  // Draw grid
-  ctx.strokeStyle = '#111a2e';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-  for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-
-  // Draw Corridors
-  const routes = state.routesGeoJSON || PRE_EMBEDDED_PUNE_GEOJSON;
-  if (state.showRoutes && routes && routes.features) {
-    for (const f of routes.features) {
-      const coords = f.geometry.coordinates;
-      ctx.strokeStyle = f.properties.color || '#06b6d4';
-      ctx.lineWidth = 6;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      coords.forEach((c, i) => {
-        const pt = projectGeoToCanvas(c[1], c[0], w, h);
-        if (i === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      });
-      ctx.stroke();
-
-      // Label
-      if (coords.length > 1) {
-        const mid = projectGeoToCanvas(coords[Math.floor(coords.length/2)][1], coords[Math.floor(coords.length/2)][0], w, h);
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = '10px Inter, sans-serif';
-        ctx.fillText(f.properties.name, mid.x + 8, mid.y - 4);
-      }
-    }
-  }
-
-  // Draw Incidents
-  state.incidents.forEach(inc => {
-    if (!inc.latitude || !inc.longitude) return;
-    const snap = snapToRoadCorridor(parseFloat(inc.latitude), parseFloat(inc.longitude));
-    const ptRoad = projectGeoToCanvas(snap.coords[0], snap.coords[1], w, h);
-    const ptRaw = projectGeoToCanvas(parseFloat(inc.latitude), parseFloat(inc.longitude), w, h);
-
-    if (state.showDrift) {
-      ctx.strokeStyle = '#f59e0b';
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(ptRaw.x, ptRaw.y);
-      ctx.lineTo(ptRoad.x, ptRoad.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Road marker circle
-    ctx.fillStyle = inc.event_type === 'POTHOLE' ? '#ef4444' : (inc.event_type === 'GARBAGE' ? '#10b981' : '#f59e0b');
-    ctx.beginPath();
-    ctx.arc(ptRoad.x, ptRoad.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  });
-
-  // Draw Fleet Buses
-  if (state.showBuses) {
-    state.fleet.forEach(b => {
-      if (!b.latitude || !b.longitude) return;
-      const pt = projectGeoToCanvas(b.latitude, b.longitude, w, h);
-      ctx.fillStyle = '#06b6d4';
-      ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '10px JetBrains Mono, monospace';
-      ctx.fillText(b.bus_id, pt.x + 8, pt.y + 3);
-    });
+function updateDsIndicator(connected) {
+  const el = document.getElementById('dsIndicator');
+  if (connected) {
+    el.innerHTML = `<span class="dot pulse"></span> Live Pipeline Active`;
+  } else {
+    el.innerHTML = `<span class="dot offline"></span> Reconnecting...`;
   }
 }
 
-/* ============ DATA SYNC & WEBSOCKET ENGINE ============ */
-function connectWebSocket() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws`;
+/* =========================================================================
+   LEAFLET GIS ENGINE IMPLEMENTATION
+   ========================================================================= */
+let leafletMap = null;
+let tileLayer = null;
+let roadPolyline = null;
+let busMarkers = {};
+let incidentMarkers = {};
 
-  try {
-    state.ws = new WebSocket(wsUrl);
-
-    state.ws.onopen = () => {
-      console.log("[WebSocket] Realtime sync active");
-      document.getElementById('wsBadge').className = 'ws-indicator live';
-      document.getElementById('wsText').textContent = 'LIVE WEBSOCKET';
-      if (state.wsReconnectTimer) {
-        clearTimeout(state.wsReconnectTimer);
-        state.wsReconnectTimer = null;
-      }
-    };
-
-    state.ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        handleWsMessage(msg);
-      } catch (err) {
-        console.warn("[WebSocket] Parse error:", err);
-      }
-    };
-
-    state.ws.onclose = () => {
-      document.getElementById('wsBadge').className = 'ws-indicator';
-      document.getElementById('wsText').textContent = 'OFFLINE / RECONNECTING';
-      if (!state.wsReconnectTimer) {
-        state.wsReconnectTimer = setTimeout(connectWebSocket, 2500);
-      }
-    };
-
-    state.ws.onerror = () => {
-      state.ws.close();
-    };
-  } catch (e) {
-    console.warn("WebSocket init fallback:", e);
-  }
-}
-
-function handleWsMessage(msg) {
-  if (msg.type === 'INITIAL_STATE') {
-    state.stats = msg.data.stats || {};
-    state.fleet = msg.data.fleet || [];
-    state.incidents = msg.data.incidents || [];
-    state.tickets = msg.data.tickets || [];
-    state.recentEvents = msg.data.events || [];
-    updateAllViews();
-  } else if (msg.type === 'EVENT_INGESTED') {
-    if (!state.recentEvents) state.recentEvents = [];
-    state.recentEvents.unshift(msg.data);
-    if (state.recentEvents.length > 20) state.recentEvents.pop();
-    if (msg.bus) {
-      const bIdx = state.fleet.findIndex(b => b.bus_id === msg.bus.bus_id);
-      if (bIdx >= 0) state.fleet[bIdx] = msg.bus;
-      else state.fleet.push(msg.bus);
-    }
-    if (msg.stats) state.stats = msg.stats;
-    showToast(`Event Ingested: ${msg.data.event_id} (${msg.data.event_type}) on ${msg.data.bus_id}`);
-    updateAllViews();
-  } else if (msg.type === 'INCIDENT_CREATED' || msg.type === 'INCIDENT_UPDATED') {
-    const idx = state.incidents.findIndex(i => i.incident_id === msg.data.incident_id);
-    if (idx >= 0) state.incidents[idx] = msg.data;
-    else state.incidents.unshift(msg.data);
-    if (msg.stats) state.stats = msg.stats;
-    showToast(`Incident Fused: ${msg.data.incident_id} (${msg.data.status})`);
-    updateAllViews();
-  } else if (msg.type === 'TICKET_CREATED' || msg.type === 'TICKET_STATUS_UPDATED') {
-    const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
-    if (idx >= 0) state.tickets[idx] = msg.data;
-    else state.tickets.unshift(msg.data);
-    if (msg.stats) state.stats = msg.stats;
-    showToast(`Civic Ticket: ${msg.data.ticket_id} → ${msg.data.status}`);
-    updateAllViews();
-  } else if (msg.type === 'FLEET_UPDATED') {
-    state.fleet = msg.data;
-    updateLeafletLayers();
-    drawCanvasMap();
-    if (state.activeTab === 'fleet') renderTabContent();
-  } else if (msg.type === 'STATS_UPDATED') {
-    state.stats = msg.data;
-    updateKPIs();
-  }
-}
-
-async function fetchInitialData() {
-  try {
-    const [statsRes, incRes, tktRes, fltRes, rtsRes, evtRes] = await Promise.all([
-      fetch('/api/v1/stats'),
-      fetch('/api/v1/incidents'),
-      fetch('/api/v1/tickets'),
-      fetch('/api/v1/fleet'),
-      fetch('/api/v1/routes/geojson'),
-      fetch('/api/v1/events'),
-    ]);
-
-    if (statsRes.ok) state.stats = await statsRes.json();
-    if (incRes.ok) {
-      const incData = await incRes.json();
-      state.incidents = incData.incidents || [];
-    }
-    if (tktRes.ok) {
-      const tktData = await tktRes.json();
-      state.tickets = tktData.tickets || [];
-    }
-    if (fltRes.ok) {
-      const fltData = await fltRes.json();
-      state.fleet = fltData.fleet || [];
-    }
-    if (rtsRes.ok) {
-      state.routesGeoJSON = await rtsRes.json();
-    }
-    if (evtRes.ok) {
-      const evtData = await evtRes.json();
-      state.recentEvents = (evtData.events || []).slice(-20).reverse();
-    }
-
-    updateAllViews();
-  } catch (err) {
-    console.warn("Initial sync error:", err);
-    updateAllViews();
-  }
-}
-
-/* ============ MAP LAYERS RENDERING (STRICT ROAD ALIGNMENT) ============ */
-function updateLeafletLayers() {
-  if (state.useFallbackCanvas) {
-    drawCanvasMap();
-    return;
-  }
-  if (!state.leafletMap || typeof L === 'undefined') return;
-
-  // 1. Draw Pune Transit Corridors Polylines
-  state.routesLayer.clearLayers();
-  const routes = state.routesGeoJSON || PRE_EMBEDDED_PUNE_GEOJSON;
-  if (state.showRoutes && routes && routes.features) {
-    L.geoJSON(routes, {
-      style: function(f) {
-        return {
-          color: f.properties.color || '#06b6d4',
-          weight: 5,
-          opacity: 0.9,
-          lineJoin: 'round',
-          lineCap: 'round',
-        };
-      },
-      onEachFeature: function(f, layer) {
-        layer.bindTooltip(
-          `<b>${f.properties.name}</b><br><span style="font-size:10px;color:#94a3b8;">${f.properties.description}</span>`,
-          { sticky: true }
-        );
-      }
-    }).addTo(state.routesLayer);
-  }
-
-  // 2. Draw Defect / Incident Markers with Guaranteed Road Centering
-  state.markersLayer.clearLayers();
-  state.driftLayer.clearLayers();
-
-  state.incidents.forEach(inc => {
-    if (!inc.latitude || !inc.longitude) return;
-
-    // Coordinate resolution: prefer road-aligned coordinates, otherwise snap to nearest corridor segment
-    const rawCoords = [parseFloat(inc.latitude), parseFloat(inc.longitude)];
-    let roadCoords;
-
-    if (inc.road_aligned_latitude && inc.road_aligned_longitude) {
-      roadCoords = [parseFloat(inc.road_aligned_latitude), parseFloat(inc.road_aligned_longitude)];
-    } else {
-      const snapResult = snapToRoadCorridor(rawCoords[0], rawCoords[1]);
-      roadCoords = snapResult.coords;
-    }
-
-    const driftMeters = haversineMeters(rawCoords[0], rawCoords[1], roadCoords[0], roadCoords[1]);
-    const isDrifted = driftMeters > 1.5;
-
-    // Draw GNSS satellite drift vector if present and enabled
-    if (isDrifted && state.showDrift) {
-      const driftLine = L.polyline([rawCoords, roadCoords], {
-        color: '#f59e0b',
-        dashArray: '4, 5',
-        weight: 2,
-        opacity: 0.8
-      });
-      driftLine.bindTooltip(`Satellite Drift: ${driftMeters.toFixed(1)}m mapped to Road Centerline`);
-      driftLine.addTo(state.driftLayer);
-
-      const driftCircle = L.circleMarker(rawCoords, {
-        radius: 4,
-        color: '#f59e0b',
-        fillColor: '#000',
-        fillOpacity: 0.8,
-        weight: 1.5
-      });
-      driftCircle.bindTooltip(`Raw GNSS Fix: ${rawCoords[0].toFixed(5)}°, ${rawCoords[1].toFixed(5)}°`);
-      driftCircle.addTo(state.driftLayer);
-    }
-
-    // Road marker pinned STRICTLY over the road centerline
-    const isHigh = (inc.severity || 'MEDIUM').toUpperCase() === 'HIGH';
-    const typeKey = (inc.event_type || 'POTHOLE').toUpperCase();
-    const typeClass = typeKey.toLowerCase();
-
-    const pinHtml = `
-      <div class="custom-road-marker ${typeClass}">
-        ${isHigh ? '<div class="pulse-ring"></div>' : ''}
-        <span>${getDefectIcon(typeKey)}</span>
-      </div>`;
-
-    const customIcon = L.divIcon({
-      className: '',
-      html: pinHtml,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
-      popupAnchor: [0, -15]
-    });
-
-    const marker = L.marker(roadCoords, { icon: customIcon });
-
-    marker.bindPopup(`
-      <div style="font-family:var(--font-body);padding:2px 4px;min-width:210px;color:#000;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-          <b style="font-family:var(--font-mono);font-size:12px;">${inc.incident_id}</b>
-          <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:#e2e8f0;">${inc.status}</span>
-        </div>
-        <div style="font-weight:700;font-size:13px;margin-top:4px;">${(inc.event_type||'').replace('_',' ')}</div>
-        <div style="font-size:11px;color:#475569;">${inc.locality || 'Pune Road Corridor'}</div>
-        <div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">
-          Road Centerline Aligned (0m lateral error)
-        </div>
-        <div style="font-size:10.5px;color:#64748b;font-family:var(--font-mono);margin-top:2px;">
-          ${roadCoords[0].toFixed(6)}°, ${roadCoords[1].toFixed(6)}°
-        </div>
-        <div style="margin-top:8px;border-top:1px solid #cbd5e1;padding-top:6px;display:flex;justify-content:space-between;">
-          <a href="javascript:void(0)" onclick="openIncidentDetail('${inc.incident_id}')" style="color:#0284c7;font-weight:700;font-size:11.5px;">Inspect Details</a>
-          <a href="https://www.google.com/maps/dir/?api=1&destination=${roadCoords[0]},${roadCoords[1]}" target="_blank" style="color:#64748b;font-size:11px;">Directions</a>
-        </div>
-      </div>
-    `);
-
-    marker.on('click', () => openIncidentDetail(inc.incident_id));
-    marker.addTo(state.markersLayer);
-  });
-
-  // 3. Draw Bus Fleet Markers
-  state.busesLayer.clearLayers();
-  if (state.showBuses) {
-    state.fleet.forEach(b => {
-      if (!b.latitude || !b.longitude) return;
-
-      const busIcon = L.divIcon({
-        className: '',
-        html: `<div class="bus-fleet-marker ${b.status==='OFFLINE'?'offline':''}"><span class="bus-dot"></span> ${b.bus_id}</div>`,
-        iconSize: [74, 24],
-        iconAnchor: [37, 12]
-      });
-
-      const bMarker = L.marker([b.latitude, b.longitude], { icon: busIcon });
-      bMarker.bindTooltip(`<b>${b.bus_id}</b> (${b.status})<br>${b.route_name || b.route_id}`);
-      bMarker.on('click', () => {
-        switchTab('fleet');
-      });
-      bMarker.addTo(state.busesLayer);
-    });
-  }
-}
-
-/* ============ TAB VIEW RENDERING ============ */
-function switchTab(tabName) {
-  state.activeTab = tabName;
-  document.querySelectorAll('.nav-link').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === tabName);
-  });
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.id === 'tabBtn' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-  });
-  renderTabContent();
-}
-
-function renderTabContent() {
-  const container = document.getElementById('tabContent');
+function initLeafletMap() {
+  const container = document.getElementById('leafletMap');
   if (!container) return;
 
-  if (state.activeTab === 'hazards') {
-    if (state.incidents.length === 0) {
-      container.innerHTML = `<div style="text-align:center;padding:40px 10px;color:var(--ink-dim);">No road hazards reported. Run a simulation scenario.</div>`;
-      return;
-    }
-    container.innerHTML = `<div class="card-stack">
-      ${state.incidents.map(inc => {
-        const stClass = inc.status === 'VERIFIED' ? 'st-verified' : (inc.status === 'RESOLVED' ? 'st-resolved' : 'st-candidate');
-        return `
-          <div class="defect-card ${state.selectedId===inc.incident_id?'selected':''}" onclick="openIncidentDetail('${inc.incident_id}')">
-            <div class="card-top">
-              <span class="id-tag">${inc.incident_id}</span>
-              <span class="badge-status ${stClass}">${inc.status}</span>
-            </div>
-            <div class="card-title">
-              <span class="icon" style="width:16px;height:16px;">${getDefectIcon(inc.event_type)}</span>
-              <span>${(inc.event_type||'').replace('_',' ')}</span>
-            </div>
-            <div class="card-locality">${inc.locality || 'Pune Road Corridor'}</div>
-            <div class="card-metrics">
-              <div>Corroboration: <b>${inc.observation_count||1} buses</b></div>
-              <div class="road-tag">
-                <span class="icon" style="width:12px;height:12px;">${ICONS.CHECK}</span>
-                <span>Road Snapped</span>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>`;
-  } else if (state.activeTab === 'tickets') {
-    if (state.tickets.length === 0) {
-      container.innerHTML = `<div style="text-align:center;padding:40px 10px;color:var(--ink-dim);">No civic tickets active. Verified incidents auto-generate tickets.</div>`;
-      return;
-    }
-    container.innerHTML = `<div class="card-stack">
-      ${state.tickets.map(tkt => {
-        const isDone = tkt.status === 'RESOLVED';
-        return `
-          <div class="defect-card ${state.selectedId===tkt.ticket_id?'selected':''}" onclick="openTicketDetail('${tkt.ticket_id}')">
-            <div class="card-top">
-              <span class="id-tag">${tkt.ticket_id}</span>
-              <span class="badge-status ${isDone?'st-resolved':'st-candidate'}">${tkt.status}</span>
-            </div>
-            <div class="card-title">
-              <span class="icon" style="width:16px;height:16px;">${ICONS.TICKET}</span>
-              <span>${(tkt.event_type||'POTHOLE').replace('_',' ')}</span>
-            </div>
-            <div class="card-locality">Work Order: ${tkt.workorder_id || 'WO-2026-PENDING'}</div>
-            <div class="card-metrics">
-              <div>SLA: <b>${tkt.estimated_repair_sla_hours || 48}h</b></div>
-              <div style="color:var(--telemetry-cyan);font-weight:600;">Inspect Stepper &rarr;</div>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>`;
-  } else if (state.activeTab === 'fleet') {
-    container.innerHTML = `<div class="card-stack">
-      ${state.fleet.map(b => {
-        const isOnline = b.status === 'ONLINE';
-        return `
-          <div class="defect-card">
-            <div class="card-top">
-              <span class="id-tag">${b.bus_id}</span>
-              <span class="badge-status ${isOnline?'st-resolved':'st-verified'}">${b.status}</span>
-            </div>
-            <div class="card-title">
-              <span class="icon" style="width:16px;height:16px;">${ICONS.BUS}</span>
-              <span>${b.route_name || b.route_id}</span>
-            </div>
-            <div class="card-locality">Uptime: ${b.uptime || 'Active'} &middot; Battery: ${b.battery || 85}%</div>
-            <div class="card-metrics">
-              <div>Last Event: <b>${b.last_event || 'None'}</b></div>
-              <div class="mono" style="font-size:10.5px;">${b.latitude ? b.latitude.toFixed(4)+'°, '+b.longitude.toFixed(4)+'°' : 'En route'}</div>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>`;
-  } else if (state.activeTab === 'events') {
-    container.innerHTML = `<div class="card-stack">
-      ${state.recentEvents.map(ev => {
-        return `
-          <div class="defect-card">
-            <div class="card-top">
-              <span class="id-tag">${ev.event_id}</span>
-              <span style="font-size:10.5px;color:var(--telemetry-cyan);">${ev.bus_id}</span>
-            </div>
-            <div class="card-title" style="font-size:12.5px;">
-              <span class="icon" style="width:14px;height:14px;">${ICONS.PULSE}</span>
-              <span>${ev.event_type} (${Math.round((ev.confidence||0.9)*100)}%)</span>
-            </div>
-            <div class="card-metrics">
-              <div class="mono" style="font-size:10.5px;">${ev.latitude ? ev.latitude.toFixed(4)+'°, '+ev.longitude.toFixed(4)+'°' : 'Road'}</div>
-              <div style="font-size:10px;color:var(--ink-dim);">${ev.source || 'Simulator'}</div>
-            </div>
-          </div>
-        `;
-      }).join('')}
-    </div>`;
+  if (leafletMap) {
+    leafletMap.remove();
+    leafletMap = null;
+    busMarkers = {};
+    incidentMarkers = {};
+  }
+
+  // Center on FC Road corridor Pune
+  leafletMap = L.map('leafletMap', {
+    center: [18.5228, 73.8420],
+    zoom: 15,
+    zoomControl: true,
+  });
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  tileLayer = L.tileLayer(tileUrl, {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+  }).addTo(leafletMap);
+
+  // Plot FC Road Corridor from KML coordinates
+  // 1. Casing line for high-contrast visibility
+  L.polyline(FC_ROAD_KML_COORDS, {
+    color: isDark ? '#0F4A61' : '#0E1B2C',
+    weight: 9,
+    opacity: 0.6,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(leafletMap);
+
+  // 2. Active transit corridor centerline
+  roadPolyline = L.polyline(FC_ROAD_KML_COORDS, {
+    color: '#1C6E8C',
+    weight: 5,
+    opacity: 0.95,
+    lineCap: 'round',
+    lineJoin: 'round',
+    dashArray: null,
+  }).addTo(leafletMap);
+
+  // Render markers
+  updateMapMarkers();
+
+  // Invalidate map size after DOM paints
+  setTimeout(() => {
+    if (leafletMap) leafletMap.invalidateSize();
+  }, 200);
+}
+
+function updateMapTileTheme(theme) {
+  if (!leafletMap || !tileLayer) return;
+  tileLayer.setUrl('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+}
+
+function resetMapToFCRoad() {
+  if (leafletMap && roadPolyline) {
+    leafletMap.fitBounds(roadPolyline.getBounds(), { padding: [30, 30] });
   }
 }
 
-function updateKPIs() {
-  document.getElementById('badgeHazards').textContent = state.incidents.length;
-  document.getElementById('badgeTickets').textContent = state.tickets.length;
-  document.getElementById('badgeFleet').textContent = state.fleet.length;
-  document.getElementById('badgeEvents').textContent = state.recentEvents.length;
-
-  document.getElementById('kpiIncidents').textContent = state.incidents.length;
-  document.getElementById('kpiTickets').textContent = state.tickets.filter(t => t.status !== 'RESOLVED').length;
-  document.getElementById('kpiBuses').textContent = state.fleet.filter(b => b.status === 'ONLINE').length;
+function mapMarkerColorHex(type) {
+  const colors = {
+    POTHOLE: '#B94A3B',
+    GARBAGE: '#2E7D53',
+    TRAFFIC_OBSTRUCTION: '#CC7A2E',
+    PEDESTRIAN_RISK: '#5B3FA8'
+  };
+  return colors[type] || '#B94A3B';
 }
 
-function updateAllViews() {
-  updateKPIs();
-  updateLeafletLayers();
-  renderTabContent();
+function updateMapMarkers() {
+  if (!leafletMap) return;
+
+  // 1. Update live bus markers
+  state.buses.forEach(bus => {
+    const rawLat = bus.latitude || 18.5204;
+    const rawLon = bus.longitude || 73.8436;
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon);
+
+    const isOnline = bus.status === 'ONLINE' || bus.status === 'online';
+    const heading = bus.heading_degrees || 0;
+
+    const busIcon = L.divIcon({
+      className: 'leaflet-bus-icon-wrap',
+      html: `
+        <div class="leaflet-bus-marker ${isOnline ? 'online' : 'offline'}" title="${bus.bus_id} (${bus.speed_kmh || 0} km/h)">
+          <div class="bus-pulse"></div>
+          <div class="bus-core" style="transform: rotate(${heading}deg);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
+              <path d="M4 6h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/>
+              <path d="M4 12h16"/>
+              <circle cx="8" cy="18.5" r="1.5" fill="currentColor"/>
+              <circle cx="16" cy="18.5" r="1.5" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="bus-pill-tag">${bus.bus_id}</div>
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    });
+
+    if (busMarkers[bus.bus_id]) {
+      busMarkers[bus.bus_id].setLatLng([snappedLat, snappedLon]);
+      busMarkers[bus.bus_id].setIcon(busIcon);
+    } else {
+      const marker = L.marker([snappedLat, snappedLon], { icon: busIcon, zIndexOffset: 1000 });
+      marker.on('click', () => openBusDrawer(bus.bus_id));
+      marker.addTo(leafletMap);
+      busMarkers[bus.bus_id] = marker;
+    }
+  });
+
+  // 2. Update live incident markers
+  state.incidents.forEach(inc => {
+    const rawLat = inc.latitude || inc.road_aligned_latitude || 18.5204;
+    const rawLon = inc.longitude || inc.road_aligned_longitude || 73.8436;
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon);
+
+    const type = inc.event_type || inc.type || 'POTHOLE';
+    const isVerified = inc.status === 'VERIFIED' || inc.status === 'verified';
+    const isSelected = inc.incident_id === state.selectedIncidentId;
+    const colorHex = mapMarkerColorHex(type);
+
+    const incIcon = L.divIcon({
+      className: 'leaflet-incident-icon-wrap',
+      html: `
+        <div class="leaflet-incident-marker ${isSelected ? 'selected' : ''}" style="--pin-color: ${colorHex};" title="${inc.incident_id} - ${type}">
+          <div class="pin-ring"></div>
+          <div class="pin-head">
+            <span class="pin-type-dot"></span>
+          </div>
+          ${isVerified ? '<span class="pin-verified-badge">✓</span>' : ''}
+        </div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 26]
+    });
+
+    if (incidentMarkers[inc.incident_id]) {
+      incidentMarkers[inc.incident_id].setLatLng([snappedLat, snappedLon]);
+      incidentMarkers[inc.incident_id].setIcon(incIcon);
+    } else {
+      const marker = L.marker([snappedLat, snappedLon], { icon: incIcon });
+      marker.on('click', () => openIncidentDrawer(inc.incident_id));
+      marker.addTo(leafletMap);
+      incidentMarkers[inc.incident_id] = marker;
+    }
+  });
 }
 
-/* ============ DRAWER INSPECTOR (INCIDENT & TICKET) ============ */
-function openIncidentDetail(id) {
+/* =========================================================================
+   DRAWERS (Slide-in detailed inspections)
+   ========================================================================= */
+function openDrawer(headHTML, bodyHTML, footHTML) {
+  document.getElementById('drawerHead').innerHTML = headHTML;
+  document.getElementById('drawerBody').innerHTML = bodyHTML;
+  document.getElementById('drawerFoot').innerHTML = footHTML || '';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+
+function sevBadge(sev) {
+  const s = (sev || 'MEDIUM').toUpperCase();
+  return `<span class="badge sev-${s.toLowerCase()}">${s}</span>`;
+}
+function statusBadge(st) {
+  const map = {
+    VERIFIED: 'st-acknowledged', verified: 'st-acknowledged',
+    PENDING: 'st-reported', pending: 'st-reported',
+    REPORTED: 'st-reported', ACKNOWLEDGED: 'st-acknowledged',
+    IN_PROGRESS: 'st-inprogress', RESOLVED: 'st-resolved'
+  };
+  const labelMap = {
+    VERIFIED: 'Verified', verified: 'Verified',
+    PENDING: 'Pending Fusion', pending: 'Pending Fusion',
+    REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged',
+    IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved'
+  };
+  return `<span class="badge ${map[st] || 'type'}">${labelMap[st] || st}</span>`;
+}
+function fmtTime(iso) {
+  if (!iso) return 'Just now';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+function gmapsLink(lat, lng) {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
+function evidenceSVG(type, w = 260, h = 150) {
+  const bg = { POTHOLE: '#8A8577', GARBAGE: '#7E8B72', TRAFFIC_OBSTRUCTION: '#7A8593', PEDESTRIAN_RISK: '#8B8377' }[type] || '#888';
+  let shape = '';
+  if (type === 'POTHOLE') {
+    shape = `<ellipse cx="130" cy="95" rx="46" ry="20" fill="#2B2B2E" opacity="0.85"/>
+      <ellipse cx="130" cy="93" rx="38" ry="15" fill="#17181A"/>
+      <path d="M40 130 L220 130" stroke="#D9D3C2" stroke-width="2" stroke-dasharray="6 6" opacity=".5"/>`;
+  } else if (type === 'GARBAGE') {
+    shape = `<ellipse cx="150" cy="112" rx="55" ry="14" fill="#4B4030" opacity=".5"/>
+      <rect x="105" y="70" width="28" height="34" rx="3" fill="#B7C9A5"/>
+      <rect x="140" y="60" width="26" height="44" rx="3" fill="#C9B79A"/>
+      <rect x="168" y="78" width="22" height="26" rx="3" fill="#9FB48E"/>`;
+  } else if (type === 'TRAFFIC_OBSTRUCTION') {
+    shape = `<polygon points="130,55 165,115 95,115" fill="#D98A3D" stroke="#7A4B14" stroke-width="2"/>
+      <rect x="122" y="75" width="16" height="24" fill="#3A2A10"/>`;
+  } else {
+    shape = `<circle cx="130" cy="90" r="26" fill="#E7C36B"/>
+      <circle cx="130" cy="78" r="9" fill="#3A2A10"/>
+      <rect x="120" y="88" width="20" height="26" rx="6" fill="#3A2A10"/>`;
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="g${type}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${bg}" stop-opacity="0.9"/><stop offset="1" stop-color="#2B2E33"/>
+    </linearGradient></defs>
+    <rect width="${w}" height="${h}" fill="url(#g${type})"/>
+    ${shape}
+    <rect x="70" y="55" width="120" height="70" fill="none" stroke="#7CE38B" stroke-width="1.6" stroke-dasharray="5 4" rx="4"/>
+    <rect x="70" y="41" width="118" height="14" rx="3" fill="#111820" opacity=".8"/>
+    <text x="76" y="51" font-family="JetBrains Mono, monospace" font-size="9" fill="#7CE38B">EDGE AI DETECT · ${type}</text>
+  </svg>`;
+}
+
+function renderEvidenceImage(inc) {
+  let imgPath = '';
+  if (inc.evidence_image) {
+    imgPath = inc.evidence_image.startsWith('/') ? inc.evidence_image : '/' + inc.evidence_image;
+  } else if (inc.event_id) {
+    imgPath = `/runtime/evidence/${inc.event_id}.jpg`;
+  } else {
+    // Check linked ticket for evidence_image
+    const ticket = (state.tickets || []).find(t => t.incident_id === inc.incident_id || (inc.ticket_id && t.ticket_id === inc.ticket_id));
+    if (ticket && ticket.evidence_image) {
+      imgPath = ticket.evidence_image.startsWith('/') ? ticket.evidence_image : '/' + ticket.evidence_image;
+    } else {
+      // Check recent events from this bus or corridor
+      const ev = (state.events || []).find(e => (inc.buses && inc.buses.includes(e.bus_id)) || e.bus_id === inc.bus_id);
+      if (ev && ev.evidence_image) {
+        imgPath = ev.evidence_image.startsWith('/') ? ev.evidence_image : '/' + ev.evidence_image;
+      } else if (ev && ev.event_id) {
+        imgPath = `/runtime/evidence/${ev.event_id}.jpg`;
+      } else {
+        imgPath = `/runtime/evidence/${inc.incident_id || 'EVT-000001'}.jpg`;
+      }
+    }
+  }
+
+  const type = inc.event_type || inc.type || 'POTHOLE';
+  const confPct = Math.round((inc.confidence || 0.9) * 100);
+
+  return `
+    <div class="evidence-container">
+      <img class="evidence-img" src="${imgPath}"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+           alt="Edge Defect Snapshot" />
+      <div class="evidence-fallback" style="display:none; width:100%; height:100%;">
+        ${evidenceSVG(type)}
+      </div>
+      <div class="evidence-hud-overlay">
+        <span>${type.replace('_', ' ')}</span>
+        <span class="evidence-hud-conf">${confPct}% AI CONFIDENCE</span>
+      </div>
+    </div>
+  `;
+}
+
+function openIncidentDrawer(id) {
   const inc = state.incidents.find(i => i.incident_id === id);
   if (!inc) return;
 
-  state.selectedId = id;
+  state.selectedIncidentId = id;
   const ticket = state.tickets.find(t => t.incident_id === id || t.ticket_id === inc.ticket_id);
+  const [snappedLat, snappedLon] = snapToRoad(inc.latitude, inc.longitude);
 
-  // Road vs GNSS coordinates
-  const rawCoords = [parseFloat(inc.latitude), parseFloat(inc.longitude)];
-  let roadCoords;
-  if (inc.road_aligned_latitude && inc.road_aligned_longitude) {
-    roadCoords = [parseFloat(inc.road_aligned_latitude), parseFloat(inc.road_aligned_longitude)];
-  } else {
-    roadCoords = snapToRoadCorridor(rawCoords[0], rawCoords[1]).coords;
+  if (leafletMap && incidentMarkers[id]) {
+    leafletMap.panTo([snappedLat, snappedLon]);
   }
-  const driftMeters = haversineMeters(rawCoords[0], rawCoords[1], roadCoords[0], roadCoords[1]);
 
-  document.getElementById('drawerTitle').textContent = `Defect ${inc.incident_id}`;
+  const type = inc.event_type || inc.type || 'POTHOLE';
+  const buses = inc.buses || (inc.bus_id ? [inc.bus_id] : ['BUS-001']);
+
+  const head = `
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge type">${type.replace('_', ' ')}</span>
+        ${statusBadge(inc.status || 'PENDING')}
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;">${inc.incident_id}</h3>
+      <div class="mono" style="margin-top:2px;">FC Road Corridor, Pune</div>
+    </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
 
   const body = `
-    <!-- Defect Evidence Image -->
-    <div class="evidence-wrapper">
-      <img class="evidence-img" src="/runtime/evidence/${inc.event_id || inc.incident_id}.jpg"
-           onerror="this.onerror=null; this.src='/runtime/evidence/EVT-000001.jpg'" alt="Edge Camera Evidence" />
-      <div class="evidence-overlay-tag">
-        YOLOv8 Detection &bull; ByteTrack Tracked &bull; ${Math.round((inc.confidence || 0.94) * 100)}% Conf
-      </div>
+    ${renderEvidenceImage(inc)}
+
+    <div class="section-title">Corroborating Fleet Buses</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${buses.map(b => `<span class="badge type mono">${b}</span>`).join('')}
     </div>
 
-    <!-- Road Snapping Verification Box -->
-    <div class="coord-comparison">
-      <div style="font-size:11px;font-weight:700;color:var(--ink-secondary);text-transform:uppercase;margin-bottom:6px;">
-        Road Centerline Alignment Verification
-      </div>
-      <div class="coord-row snapped">
-        <span>Road Snapped Position:</span>
-        <span class="mono">${roadCoords[0].toFixed(6)}°, ${roadCoords[1].toFixed(6)}°</span>
-      </div>
-      <div class="coord-row drift">
-        <span>Raw GNSS Satellite Fix:</span>
-        <span class="mono">${rawCoords[0].toFixed(6)}°, ${rawCoords[1].toFixed(6)}°</span>
-      </div>
-      <div class="coord-row" style="color:var(--road-amber);font-size:11px;border-top:1px solid var(--border);margin-top:4px;padding-top:4px;">
-        <span>Satellite Drift Offset:</span>
-        <span class="mono">${driftMeters.toFixed(1)} meters (aligned to road corridor)</span>
-      </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div style="background:var(--bg-surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;">
-        <div style="font-size:10.5px;color:var(--ink-dim);">Defect Type</div>
-        <div style="font-weight:700;font-size:13px;margin-top:2px;">${(inc.event_type||'').replace('_',' ')}</div>
-      </div>
-      <div style="background:var(--bg-surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;">
-        <div style="font-size:10.5px;color:var(--ink-dim);">Severity</div>
-        <div style="font-weight:700;font-size:13px;margin-top:2px;color:var(--hazard-red);">${inc.severity || 'HIGH'}</div>
-      </div>
-    </div>
-
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--ink-secondary);text-transform:uppercase;margin-bottom:4px;">
-        Description & Corroboration
-      </div>
-      <p style="font-size:12px;color:var(--ink-secondary);line-height:1.5;">
-        ${inc.description || 'Corroborated defect observed on transit corridor. Processed by spatial-temporal fleet fusion.'}
-      </p>
-    </div>
+    <div class="section-title">Telemetry Detail</div>
+    <dl class="kv">
+      <dt>AI Confidence</dt><dd>${Math.round((inc.confidence || 0.9) * 100)}%</dd>
+      <dt>Severity</dt><dd>${sevBadge(inc.severity)}</dd>
+      <dt>Road Alignment</dt><dd class="mono">${snappedLat}°, ${snappedLon}°</dd>
+      <dt>First Detected</dt><dd>${fmtTime(inc.first_observed_at || inc.created_at || inc.timestamp)}</dd>
+      <dt>Linked Ticket</dt><dd>${inc.ticket_id ? `<span class="mono">${inc.ticket_id}</span>` : '<span style="color:var(--ink-faint)">Awaiting auto-dispatch</span>'}</dd>
+    </dl>
 
     ${ticket ? `
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--ink-secondary);text-transform:uppercase;margin-bottom:8px;">
-          Linked Civic Ticket (${ticket.ticket_id})
-        </div>
-        ${renderStepperHtml(ticket)}
-      </div>
+      <div class="section-title">Ticket Lifecycle (${ticket.ticket_id})</div>
+      ${renderStepperHTML(ticket)}
     ` : ''}
   `;
 
   const foot = `
-    <a class="btn secondary" href="https://www.google.com/maps/dir/?api=1&destination=${roadCoords[0]},${roadCoords[1]}" target="_blank" rel="noopener">
-      <span class="icon" style="width:13px;height:13px;">${ICONS.NAV}</span>
-      <span>Google Maps</span>
+    <a class="btn ghost sm" href="${gmapsLink(snappedLat, snappedLon)}" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      Open in Google Maps
     </a>
     ${ticket
-      ? `<button class="btn primary" onclick="openTicketDetail('${ticket.ticket_id}')">View Ticket (${ticket.status})</button>`
-      : `<button class="btn primary" onclick="raiseTicketFromDrawer('${inc.incident_id}')">Dispatch Civic Ticket</button>`
-    }
+      ? `<button class="btn primary sm" onclick="openTicketDrawer('${ticket.ticket_id}')">View Ticket</button>`
+      : `<button class="btn primary sm" onclick="raiseTicketForIncident('${inc.incident_id}')">Raise Ticket</button>`}
   `;
 
-  document.getElementById('drawerBody').innerHTML = body;
-  document.getElementById('drawerFoot').innerHTML = foot;
-  document.getElementById('drawerOverlay').classList.add('open');
-  document.getElementById('drawer').classList.add('open');
+  openDrawer(head, body, foot);
 }
 
-function openTicketDetail(id) {
-  const tkt = state.tickets.find(t => t.ticket_id === id);
-  if (!tkt) return;
+function renderStepperHTML(ticket) {
+  const steps = [
+    { label: 'Reported', key: 'REPORTED' },
+    { label: 'Acknowledged', key: 'ACKNOWLEDGED' },
+    { label: 'In Progress', key: 'IN_PROGRESS' },
+    { label: 'Resolved', key: 'RESOLVED' }
+  ];
 
-  state.selectedId = id;
-  document.getElementById('drawerTitle').textContent = `Ticket ${tkt.ticket_id}`;
+  const order = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+  const curIdx = order.indexOf(ticket.status || 'REPORTED');
+
+  return `<div class="stepper">
+    ${steps.map((s, i) => {
+      const isDone = i <= curIdx;
+      const isCurrent = i === curIdx;
+      const timeStr = isDone ? fmtTime(ticket.updated_at || ticket.created_at) : 'Pending';
+      return `<div class="step ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}">
+        <div class="node"></div>
+        <div>
+          <div class="stitle">${s.label}</div>
+          <div class="stime">${timeStr}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function openTicketDrawer(ticketId) {
+  const t = state.tickets.find(x => x.ticket_id === ticketId);
+  if (!t) return;
+  const inc = state.incidents.find(i => i.incident_id === t.incident_id);
+  const [lat, lon] = snapToRoad(t.latitude || (inc ? inc.latitude : 18.5204), t.longitude || (inc ? inc.longitude : 73.8436));
+
+  const head = `
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge type">${(t.event_type || 'POTHOLE').replace('_', ' ')}</span>
+        ${statusBadge(t.status || 'REPORTED')}
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;">${t.ticket_id}</h3>
+      <div class="mono" style="margin-top:2px;">FC Road Corridor, Pune</div>
+    </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
 
   const body = `
-    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-surface-sunken);border:1px solid var(--border);border-radius:6px;padding:10px 14px;">
-      <div>
-        <div style="font-size:11px;color:var(--ink-dim);">Work Order Reference</div>
-        <div class="mono" style="font-size:13px;font-weight:700;color:var(--ink-primary);">${tkt.workorder_id || 'WO-2026-PENDING'}</div>
-      </div>
-      <span class="badge-status ${tkt.status==='RESOLVED'?'st-resolved':'st-candidate'}">${tkt.status}</span>
-    </div>
-
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--ink-secondary);text-transform:uppercase;margin-bottom:8px;">
-        Civic Authority Lifecycle Stepper
-      </div>
-      ${renderStepperHtml(tkt)}
-    </div>
-
-    <!-- Before / After Repair Verification Visual -->
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--ink-secondary);text-transform:uppercase;margin-bottom:8px;">
-        Automated Resolution Verification
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div style="background:var(--bg-surface-sunken);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--ink-dim);font-weight:700;margin-bottom:6px;">INITIAL HAZARD</div>
-          <div style="width:36px;height:36px;margin:0 auto 6px;color:var(--hazard-red);">${getDefectIcon(tkt.event_type || 'POTHOLE')}</div>
-          <div style="font-size:11px;color:var(--hazard-red);font-weight:600;">Defect Detected</div>
-        </div>
-        <div style="background:var(--bg-surface-sunken);border:1px solid ${tkt.status==='RESOLVED'?'rgba(16, 185, 129, 0.4)':'var(--border)'};border-radius:6px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--ink-dim);font-weight:700;margin-bottom:6px;">POST-REPAIR INSPECTION</div>
-          <div style="width:36px;height:36px;margin:0 auto 6px;color:${tkt.status==='RESOLVED'?'var(--transit-green)':'var(--ink-dim)'};">${tkt.status==='RESOLVED'?ICONS.CHECK:ICONS.CLOCK}</div>
-          <div style="font-size:11px;color:${tkt.status==='RESOLVED'?'var(--transit-green)':'var(--ink-dim)'};font-weight:600;">
-            ${tkt.status==='RESOLVED'?'Smooth Road Surface Verified':'Awaiting Verification Re-pass'}
-          </div>
-        </div>
-      </div>
-    </div>
+    <dl class="kv">
+      <dt>Incident ID</dt><dd class="mono">${t.incident_id || 'INC-000001'}</dd>
+      <dt>Workorder ID</dt><dd class="mono">${t.workorder_id || 'WO-2026-000001'}</dd>
+      <dt>Authority</dt><dd>Pune Municipal Corporation (Road Dept)</dd>
+      <dt>Priority</dt><dd>${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}</dd>
+      <dt>Repair SLA</dt><dd class="mono">${t.estimated_repair_sla_hours || 48}h</dd>
+      <dt>Created</dt><dd>${fmtTime(t.created_at)}</dd>
+      <dt>Coordinates</dt><dd class="mono">${lat}°, ${lon}°</dd>
+    </dl>
+    <div class="section-title">Lifecycle Progress</div>
+    ${renderStepperHTML(t)}
   `;
 
   const order = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
-  const curIdx = order.indexOf(tkt.status);
-  const nextStatus = curIdx < order.length - 1 ? order[curIdx + 1] : null;
+  const curIdx = order.indexOf(t.status || 'REPORTED');
+  const nextStage = curIdx < order.length - 1 ? order[curIdx + 1] : null;
 
   const foot = `
-    <a class="btn secondary" href="${tkt.google_maps_url || 'https://www.google.com/maps'}" target="_blank" rel="noopener">
-      <span class="icon" style="width:13px;height:13px;">${ICONS.NAV}</span>
-      <span>Directions</span>
-    </a>
-    <button class="btn primary" ${!nextStatus?'disabled':''} onclick="advanceTicket('${tkt.ticket_id}', '${nextStatus}')">
-      ${nextStatus ? 'Advance to ' + nextStatus.replace('_',' ') : 'Lifecycle Complete'}
+    <a class="btn ghost sm" href="${gmapsLink(lat, lon)}" target="_blank" rel="noopener">Google Maps</a>
+    <button class="btn primary sm" ${!nextStage ? 'disabled' : ''} onclick="advanceTicketStatus('${t.ticket_id}', '${nextStage}')">
+      ${nextStage ? 'Mark ' + nextStage.replace('_', ' ') : 'Lifecycle Complete'}
     </button>
   `;
 
-  document.getElementById('drawerBody').innerHTML = body;
-  document.getElementById('drawerFoot').innerHTML = foot;
-  document.getElementById('drawerOverlay').classList.add('open');
-  document.getElementById('drawer').classList.add('open');
+  openDrawer(head, body, foot);
 }
 
-function renderStepperHtml(ticket) {
-  const steps = [
-    { label: "Reported", key: "REPORTED" },
-    { label: "Acknowledged", key: "ACKNOWLEDGED" },
-    { label: "In Progress", key: "IN_PROGRESS" },
-    { label: "Resolved", key: "RESOLVED" }
-  ];
-  const order = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
-  const curIdx = order.indexOf(ticket.status);
+function openBusDrawer(busId) {
+  const b = state.buses.find(x => x.bus_id === busId);
+  if (!b) return;
 
-  return `
-    <div class="stepper">
-      ${steps.map((st, i) => {
-        const isDone = i <= curIdx;
-        const isActive = i === curIdx;
-        return `
-          <div class="step-item ${isDone?'done':''} ${isActive?'active':''}">
-            <div class="step-node">${isDone?'&check;':i+1}</div>
-            <div class="step-info">
-              <div class="stitle">${st.label}</div>
-              <div class="stime">${isDone ? (i===0 ? fmtTime(ticket.created_at) : 'Completed') : 'Pending'}</div>
-            </div>
-          </div>
-        `;
-      }).join('')}
+  const relatedIncidents = state.incidents.filter(i => (i.buses && i.buses.includes(busId)) || i.bus_id === busId);
+  const isOnline = b.status === 'ONLINE' || b.status === 'online';
+
+  const head = `
+    <div>
+      <span class="status-pill ${isOnline ? 'online' : 'offline'}">
+        <span class="dot" style="background:${isOnline ? 'var(--green)' : 'var(--ink-faint)'}"></span>
+        ${isOnline ? 'Online' : 'Offline'}
+      </span>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;" class="mono">${b.bus_id}</h3>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
     </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
+
+  const body = `
+    <dl class="kv">
+      <dt>Edge AI</dt><dd>YOLO + ByteTrack</dd>
+      <dt>Speed</dt><dd class="mono">${b.speed_kmh ? b.speed_kmh.toFixed(1) + ' km/h' : '36.0 km/h'}</dd>
+      <dt>Heading</dt><dd class="mono">${b.heading_degrees ? b.heading_degrees.toFixed(0) + '°' : 'N/A'}</dd>
+      <dt>Battery</dt><dd>${b.battery || 88}%</dd>
+      <dt>Session</dt><dd>${b.uptime || 'Live'}</dd>
+      <dt>Last Event</dt><dd class="mono">${b.last_event || 'EVT-010001'}</dd>
+      <dt>Uplink</dt><dd>HTTP Ingest + MQTT Broker</dd>
+    </dl>
+    <div class="section-title">Contributed Defect Observations (${relatedIncidents.length})</div>
+    ${relatedIncidents.length ? relatedIncidents.map(i => `
+      <div class="obs-row" style="cursor:pointer;" onclick="openIncidentDrawer('${i.incident_id}')">
+        <div class="busdot">${(i.event_type || i.type || 'POT').slice(0, 3)}</div>
+        <div style="flex:1;">
+          <div style="font-size:12.5px;font-weight:600;">${i.incident_id} · ${(i.event_type || i.type || 'POTHOLE').replace('_', ' ')}</div>
+          <div style="font-size:11px;color:var(--ink-faint);">FC Road Corridor</div>
+        </div>
+        ${statusBadge(i.status || 'PENDING')}
+      </div>`).join('') : `<div class="empty">No incidents detected yet on this run.</div>`}
   `;
+
+  openDrawer(head, body, '');
 }
 
-function closeDrawer() {
-  document.getElementById('drawerOverlay').classList.remove('open');
-  document.getElementById('drawer').classList.remove('open');
-  state.selectedId = null;
-  renderTabContent();
-}
-
-/* ============ INTERACTIVE ACTIONS & BACKEND SYNC ============ */
-async function advanceTicket(ticketId, newStatus) {
-  if (!newStatus) return;
+/* ============ TICKET ACTIONS (Real REST API calls) ============ */
+async function advanceTicketStatus(ticketId, nextStage) {
+  if (!nextStage) return;
   try {
-    const res = await fetch(`/api/v1/tickets/${encodeURIComponent(ticketId)}/status?new_status=${encodeURIComponent(newStatus)}`, {
-      method: 'PATCH'
+    const res = await fetch(`/api/v1/tickets/${ticketId}/status?new_status=${nextStage}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
     });
     if (res.ok) {
       const data = await res.json();
-      const t = state.tickets.find(x => x.ticket_id === ticketId);
-      if (t) t.status = newStatus;
-      openTicketDetail(ticketId);
-      showToast(`Status updated to ${newStatus}`);
+      const updated = data.ticket;
+      const idx = state.tickets.findIndex(t => t.ticket_id === ticketId);
+      if (idx !== -1) state.tickets[idx] = updated;
+      openTicketDrawer(ticketId);
+      if (state.route === 'tickets') renderPage();
     }
   } catch (err) {
-    console.error("Status update error:", err);
+    console.error('Failed to advance ticket status:', err);
   }
 }
 
-async function raiseTicketFromDrawer(incidentId) {
+async function raiseTicketForIncident(incidentId) {
   const inc = state.incidents.find(i => i.incident_id === incidentId);
   if (!inc) return;
 
-  const newTicketId = `POT-2026-${String(Math.floor(Math.random()*900000)+100000)}`;
-  const now = new Date().toISOString();
-  const payload = {
-    ticket_id: newTicketId,
-    incident_id: inc.incident_id,
-    workorder_id: `WO-2026-${newTicketId.split('-')[2]}`,
-    event_type: inc.event_type || 'POTHOLE',
+  const ticketPayload = {
+    ticket_id: `POT-2026-${incidentId.split('-').pop() || '000001'}`,
+    incident_id: incidentId,
+    workorder_id: `WO-2026-${incidentId.split('-').pop() || '000001'}`,
+    event_type: inc.event_type || inc.type || 'POTHOLE',
     confidence: inc.confidence || 0.94,
-    latitude: inc.latitude,
-    longitude: inc.longitude,
-    evidence_image: `runtime/evidence/${inc.incident_id}.jpg`,
-    google_maps_url: `https://www.google.com/maps/dir/?api=1&destination=${inc.latitude},${inc.longitude}`,
+    latitude: inc.latitude || 18.5204,
+    longitude: inc.longitude || 73.8436,
+    evidence_image: inc.evidence_image || `runtime/evidence/${inc.event_id || 'EVT-010001'}.jpg`,
+    google_maps_url: gmapsLink(inc.latitude || 18.5204, inc.longitude || 73.8436),
     estimated_repair_sla_hours: 48,
     status: 'REPORTED',
-    created_at: now,
-    updated_at: now,
   };
 
   try {
     const res = await fetch('/api/v1/tickets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      inc.ticket_id = newTicketId;
-      openTicketDetail(newTicketId);
-      showToast(`Civic Ticket ${newTicketId} dispatched`);
-    }
-  } catch (err) {
-    console.error("Ticket dispatch error:", err);
-  }
-}
-
-async function triggerScenario(scenarioName) {
-  try {
-    showToast(`Triggering scenario: ${scenarioName}...`);
-    const res = await fetch('/api/v1/simulators/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scenario: scenarioName })
+      body: JSON.stringify(ticketPayload)
     });
     if (res.ok) {
       const data = await res.json();
-      showToast(`Scenario active: ${data.message || 'Updated'}`);
+      state.tickets.push(data.ticket);
+      inc.ticket_id = data.ticket.ticket_id;
+      openIncidentDrawer(incidentId);
+      if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
     }
   } catch (err) {
-    showToast(`Scenario error: ${err}`);
+    console.error('Failed to raise ticket:', err);
   }
 }
 
-function toggleLayer(layerName, visible) {
-  if (state.useFallbackCanvas) {
-    if (layerName === 'routes') state.showRoutes = visible;
-    if (layerName === 'drift') state.showDrift = visible;
-    if (layerName === 'buses') state.showBuses = visible;
-    drawCanvasMap();
+/* =========================================================================
+   PAGE RENDERERS
+   ========================================================================= */
+function pageDashboard() {
+  const total = state.incidents.length;
+  const verified = state.incidents.filter(i => (i.status === 'VERIFIED' || i.status === 'verified')).length;
+  const openTickets = state.tickets.filter(t => t.status !== 'RESOLVED').length;
+  const onlineBuses = state.buses.filter(b => (b.status === 'ONLINE' || b.status === 'online')).length;
+  const fleetTotal = state.buses.length;
+
+  return `
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="label">Total Incidents</div>
+      <div class="value">${total}</div>
+      <div class="delta up">Fused from live detections</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Verified Incidents</div>
+      <div class="value">${verified}</div>
+      <div class="delta up">Multi-bus corroborated</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Open Tickets</div>
+      <div class="value">${openTickets}</div>
+      <div class="delta down">${state.tickets.filter(t => t.status === 'RESOLVED').length} resolved</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Fleet Online</div>
+      <div class="value">${onlineBuses}/${fleetTotal}</div>
+      <div class="delta up">Edge AI streaming live</div>
+    </div>
+  </div>
+
+  <div class="panel map-panel">
+    <div class="panel-head">
+      <h3>Live GIS Map — Pune FC Road Corridor</h3>
+      <span class="link" onclick="resetMapToFCRoad()">Center Corridor</span>
+    </div>
+    <div class="map-wrap">
+      <div id="leafletMap"></div>
+      <div class="map-controls-bar">
+        <button class="map-ctl-btn" onclick="resetMapToFCRoad()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg>
+          FC Road
+        </button>
+      </div>
+      <div class="map-legend">
+        <div><span class="sw" style="background:#B94A3B"></span>Pothole</div>
+        <div><span class="sw" style="background:#2E7D53"></span>Garbage</div>
+        <div><span class="sw" style="background:#CC7A2E"></span>Obstruction</div>
+        <div><span class="sw" style="background:#5B3FA8"></span>Pedestrian Risk</div>
+      </div>
+      <div class="map-badge">
+        <span class="dot pulse"></span>
+        <span>Leaflet GIS · ${total} incidents · ${onlineBuses} buses active</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel-head">
+      <h3>Recent Road Incidents</h3>
+      <span class="link" onclick="state.route='incidents';render()">View all →</span>
+    </div>
+    <div class="panel-body" style="padding-top:0;">
+      ${incidentsTable(state.incidents.slice(0, 6))}
+    </div>
+  </div>
+  `;
+}
+
+function incidentsTable(list) {
+  if (!list.length) {
+    return `<div class="empty">No incidents detected yet.<br>System is actively monitoring Pune transit corridors.</div>`;
+  }
+  return `<table>
+    <thead><tr><th>ID</th><th>Type</th><th>Location</th><th>Severity</th><th>Confidence</th><th>Buses</th><th>Status</th><th>Detected</th></tr></thead>
+    <tbody>
+      ${list.map(i => {
+        const type = i.event_type || i.type || 'POTHOLE';
+        const buses = i.buses || (i.bus_id ? [i.bus_id] : ['BUS-001']);
+        return `
+        <tr onclick="openIncidentDrawer('${i.incident_id}')">
+          <td class="mono">${i.incident_id}</td>
+          <td><span class="badge type">${type.replace('_', ' ')}</span></td>
+          <td>FC Road Corridor, Pune</td>
+          <td>${sevBadge(i.severity)}</td>
+          <td>${Math.round((i.confidence || 0.9) * 100)}%</td>
+          <td class="mono">${buses.length}</td>
+          <td>${statusBadge(i.status || 'PENDING')}</td>
+          <td>${fmtTime(i.first_observed_at || i.created_at || i.timestamp)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function pageIncidents() {
+  return `
+  <div class="filters">
+    <select id="fType" onchange="applyIncidentFilters()">
+      <option value="">All types</option>
+      <option value="POTHOLE">Pothole</option>
+      <option value="GARBAGE">Garbage</option>
+      <option value="TRAFFIC_OBSTRUCTION">Traffic Obstruction</option>
+      <option value="PEDESTRIAN_RISK">Pedestrian Risk</option>
+    </select>
+    <select id="fSev" onchange="applyIncidentFilters()">
+      <option value="">All severities</option>
+      <option value="HIGH">High</option>
+      <option value="MEDIUM">Medium</option>
+      <option value="LOW">Low</option>
+    </select>
+    <select id="fStatus" onchange="applyIncidentFilters()">
+      <option value="">All statuses</option>
+      <option value="VERIFIED">Verified</option>
+      <option value="PENDING">Pending Fusion</option>
+    </select>
+    <button class="btn ghost sm" onclick="state.route='incidents';render()">Reset</button>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>All Detected Incidents</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">${state.incidents.length} total</span>
+    </div>
+    <div class="panel-body" style="padding-top:0;" id="incidentsTableWrap">
+      ${incidentsTable(state.incidents)}
+    </div>
+  </div>`;
+}
+
+function applyIncidentFilters() {
+  const type = document.getElementById('fType').value;
+  const sev = document.getElementById('fSev').value;
+  const st = document.getElementById('fStatus').value;
+  const filtered = state.incidents.filter(i => {
+    const iType = i.event_type || i.type || 'POTHOLE';
+    const iSev = (i.severity || 'MEDIUM').toUpperCase();
+    const iSt = (i.status || 'PENDING').toUpperCase();
+    return (!type || iType === type) && (!sev || iSev === sev) && (!st || iSt === st);
+  });
+  document.getElementById('incidentsTableWrap').innerHTML = incidentsTable(filtered);
+}
+
+function pageBuses() {
+  if (!state.buses.length) {
+    return `<div class="empty">No bus simulators connected.<br>Start simulators using <code>./.venv/bin/python run_project.py</code> to view live edge telemetry.</div>`;
+  }
+  return `<div class="bus-grid">
+    ${state.buses.map(b => {
+      const isOnline = b.status === 'ONLINE' || b.status === 'online';
+      return `
+      <div class="bus-card" style="cursor:pointer;" onclick="openBusDrawer('${b.bus_id}')">
+        <div class="top">
+          <div>
+            <div class="id">${b.bus_id}</div>
+            <div class="route">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
+          </div>
+          <span class="status-pill ${isOnline ? 'online' : 'offline'}">
+            <span class="dot" style="background:${isOnline ? 'var(--green)' : 'var(--ink-faint)'}"></span>
+            ${isOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+        <div class="bus-meta">
+          <div><span>Speed</span>${b.speed_kmh ? b.speed_kmh.toFixed(1) + ' km/h' : '36 km/h'}</div>
+          <div><span>Heading</span>${b.heading_degrees ? b.heading_degrees.toFixed(0) + '°' : '0°'}</div>
+          <div><span>Last Event</span><span class="mono">${b.last_event || 'EVT-010001'}</span></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function pageFusion() {
+  const pending = state.incidents.filter(i => i.status !== 'VERIFIED' && i.status !== 'verified');
+  const verified = state.incidents.filter(i => i.status === 'VERIFIED' || i.status === 'verified');
+
+  return `
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Pending Fusion & Clustering Queue</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">Spatial Threshold ≤ 25m · Time Window ≤ 2h</span>
+    </div>
+    <div class="panel-body">
+      ${pending.length ? pending.map(inc => {
+        const type = inc.event_type || inc.type || 'POTHOLE';
+        const buses = inc.buses || (inc.bus_id ? [inc.bus_id] : ['BUS-001']);
+        return `
+        <div class="fusion-card">
+          <div class="fusion-head">
+            <span class="badge type">${type.replace('_', ' ')}</span>
+            <span style="font-size:12.5px;font-weight:600;">FC Road Corridor, Pune</span>
+            <span class="mono" style="margin-left:auto;font-size:11px;color:var(--ink-faint);">${inc.incident_id}</span>
+          </div>
+          ${buses.map(b => `
+            <div class="obs-row">
+              <div class="busdot">${b.slice(-3)}</div>
+              <div style="flex:1;font-size:12px;">${b} <span class="mono" style="color:var(--ink-faint);">· Single Bus Observation</span></div>
+              <div style="font-size:11.5px;color:var(--ink-soft);">${Math.round((inc.confidence || 0.85) * 100)}%</div>
+              <div style="font-size:11px;color:var(--ink-faint);">${fmtTime(inc.first_observed_at || inc.created_at)}</div>
+            </div>`).join('')}
+          <div style="margin-top:10px;font-size:11.5px;color:var(--ink-faint);">
+            Awaiting second bus (BUS-002) cross-observation on FC Road to elevate confidence and auto-issue civic ticket.
+          </div>
+        </div>`;
+      }).join('') : `<div class="empty">No uncorroborated single-bus clusters in the fusion queue.</div>`}
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel-head">
+      <h3>Multi-Bus Verified Incidents</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">${verified.length} verified</span>
+    </div>
+    <div class="panel-body" style="padding-top:0;">
+      ${incidentsTable(verified)}
+    </div>
+  </div>`;
+}
+
+function pageTickets() {
+  const cols = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+  const labels = { REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved' };
+
+  return `<div class="kanban">
+    ${cols.map(c => {
+      const items = state.tickets.filter(t => (t.status || 'REPORTED') === c);
+      return `<div>
+        <div class="kcol-head">
+          <h4>${labels[c]}</h4>
+          <span class="n">${items.length}</span>
+        </div>
+        <div class="kcol-body">
+          ${items.length ? items.map(t => {
+            const inc = state.incidents.find(i => i.incident_id === t.incident_id);
+            return `
+            <div class="tcard" onclick="openTicketDrawer('${t.ticket_id}')">
+              <div class="tid">${t.ticket_id}</div>
+              <div class="ttype">${(t.event_type || 'POTHOLE').replace('_', ' ')}</div>
+              <div class="tloc">Pune Municipal Corporation</div>
+              <div class="tfoot">
+                ${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}
+                <span class="sla">${t.estimated_repair_sla_hours || 48}h SLA</span>
+              </div>
+            </div>`;
+          }).join('') : `<div class="empty" style="padding:18px 6px;">Empty</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function pageReports() {
+  const byType = {};
+  state.incidents.forEach(i => {
+    const t = i.event_type || i.type || 'POTHOLE';
+    byType[t] = (byType[t] || 0) + 1;
+  });
+  const max = Math.max(...Object.values(byType), 1);
+  const totalTickets = state.tickets.length;
+  const resolvedTickets = state.tickets.filter(t => t.status === 'RESOLVED').length;
+  const resolvedPct = totalTickets ? Math.round((resolvedTickets / totalTickets) * 100) : 0;
+
+  return `
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><h3>Incidents by Defect Type</h3></div>
+      <div class="panel-body">
+        <div class="bars">
+          ${Object.entries(byType).length ? Object.entries(byType).map(([t, v]) => `
+            <div class="bar-col">
+              <div class="val">${v}</div>
+              <div class="bar" style="height:${(v / max * 100).toFixed(0)}%;"></div>
+              <div class="lab">${t.replace('_', ' ')}</div>
+            </div>`).join('') : '<div class="empty">No defect data available yet.</div>'}
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Civic Ticket Resolution Rate</h3></div>
+      <div class="panel-body">
+        <div class="kpi" style="border:none;box-shadow:none;padding:4px 0;">
+          <div class="label">Resolved of Total Tickets</div>
+          <div class="value">${resolvedPct}%</div>
+        </div>
+        <div style="height:8px;background:var(--surface-sunken);border-radius:999px;overflow:hidden;margin-top:6px;">
+          <div style="height:100%;width:${resolvedPct}%;background:var(--green);"></div>
+        </div>
+        <div class="section-title">Department Breakdown</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border-soft);">
+          <span>Road Maintenance Dept</span>
+          <span class="mono">${state.tickets.filter(t => (t.event_type || '').includes('POTHOLE')).length} tickets</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border-soft);">
+          <span>Solid Waste Management</span>
+          <span class="mono">${state.tickets.filter(t => (t.event_type || '').includes('GARBAGE')).length} tickets</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function handleGlobalSearch(term) {
+  state.searchTerm = (term || '').trim().toLowerCase();
+  if (!state.searchTerm) return;
+  // If user searched for an incident or ticket ID, auto open drawer if matched
+  const inc = state.incidents.find(i => i.incident_id.toLowerCase().includes(state.searchTerm));
+  if (inc && state.searchTerm.length > 5) {
+    openIncidentDrawer(inc.incident_id);
     return;
   }
-  if (!state.leafletMap) return;
-
-  if (layerName === 'routes') {
-    state.showRoutes = visible;
-    if (visible) state.leafletMap.addLayer(state.routesLayer);
-    else state.leafletMap.removeLayer(state.routesLayer);
-  } else if (layerName === 'drift') {
-    state.showDrift = visible;
-    if (visible) state.leafletMap.addLayer(state.driftLayer);
-    else state.leafletMap.removeLayer(state.driftLayer);
-  } else if (layerName === 'buses') {
-    state.showBuses = visible;
-    if (visible) state.leafletMap.addLayer(state.busesLayer);
-    else state.leafletMap.removeLayer(state.busesLayer);
+  const tkt = state.tickets.find(t => t.ticket_id.toLowerCase().includes(state.searchTerm));
+  if (tkt && state.searchTerm.length > 5) {
+    openTicketDrawer(tkt.ticket_id);
+    return;
   }
 }
 
-function showToast(msg) {
-  const container = document.getElementById('toastContainer');
-  if (!container) return;
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.innerHTML = `<span class="icon" style="width:14px;height:14px;color:var(--telemetry-cyan);">${ICONS.PULSE}</span><span>${msg}</span>`;
-  container.appendChild(t);
-  setTimeout(() => {
-    t.style.opacity = '0';
-    t.style.transition = 'opacity 0.25s ease';
-    setTimeout(() => t.remove(), 250);
-  }, 3500);
+/* =========================================================================
+   ROUTER & MAIN RENDER DISPATCHER
+   ========================================================================= */
+function renderPage() {
+  const r = ROUTES.find(x => x.id === state.route) || ROUTES[0];
+  document.getElementById('pageTitle').textContent = r.label;
+  document.getElementById('pageSub').textContent = r.sub;
+
+  const fns = {
+    dashboard: pageDashboard,
+    buses: pageBuses,
+    incidents: pageIncidents,
+    fusion: pageFusion,
+    tickets: pageTickets,
+    reports: pageReports
+  };
+
+  document.getElementById('content').innerHTML = fns[state.route]();
+
+  if (state.route === 'dashboard') {
+    initLeafletMap();
+  }
 }
 
-function fmtTime(iso) {
-  if (!iso) return '&mdash;';
+function render() {
+  renderNav();
+  renderPage();
+  closeDrawer();
+}
+
+/* =========================================================================
+   REAL-TIME WEBSOCKET & REST DATA PIPELINE
+   ========================================================================= */
+let ws = null;
+let reconnectTimer = null;
+
+function connectWebSocket() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws`;
+
   try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  } catch (e) { return iso; }
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      state.connected = true;
+      updateDsIndicator(true);
+      // Keep alive ping
+      setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping');
+      }, 25000);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWsMessage(msg);
+      } catch (err) {
+        // Ping response or string text
+      }
+    };
+
+    ws.onclose = () => {
+      state.connected = false;
+      updateDsIndicator(false);
+      reconnectTimer = setTimeout(connectWebSocket, 2000);
+    };
+
+    ws.onerror = () => {
+      if (ws) ws.close();
+    };
+  } catch (e) {
+    reconnectTimer = setTimeout(connectWebSocket, 2000);
+  }
 }
 
-function startClock() {
-  setInterval(() => {
-    const now = new Date();
-    document.getElementById('clockDisplay').textContent = now.toUTCString().slice(17, 25) + ' UTC';
-  }, 1000);
+function handleWsMessage(msg) {
+  if (!msg || !msg.type) return;
+
+  switch (msg.type) {
+    case 'INITIAL_STATE':
+      if (msg.data) {
+        if (msg.data.fleet) state.buses = msg.data.fleet;
+        if (msg.data.incidents) state.incidents = msg.data.incidents;
+        if (msg.data.tickets) state.tickets = msg.data.tickets;
+        if (msg.data.events) state.events = msg.data.events;
+        if (msg.data.stats) state.stats = msg.data.stats;
+        renderNav();
+        renderPage();
+      }
+      break;
+
+    case 'FLEET_UPDATED':
+      if (Array.isArray(msg.data)) {
+        state.buses = msg.data;
+        updateMapMarkers();
+        if (state.route === 'buses') renderPage();
+      }
+      break;
+
+    case 'EVENT_INGESTED':
+      if (msg.data) {
+        state.events.unshift(msg.data);
+        if (state.events.length > 50) state.events.pop();
+      }
+      if (msg.bus) {
+        const idx = state.buses.findIndex(b => b.bus_id === msg.bus.bus_id);
+        if (idx !== -1) state.buses[idx] = msg.bus;
+        else state.buses.push(msg.bus);
+        updateMapMarkers();
+      }
+      if (msg.stats) state.stats = msg.stats;
+      break;
+
+    case 'INCIDENT_CREATED':
+    case 'NEW_INCIDENT':
+      if (msg.data) {
+        const idx = state.incidents.findIndex(i => i.incident_id === msg.data.incident_id);
+        if (idx === -1) state.incidents.unshift(msg.data);
+        else state.incidents[idx] = msg.data;
+        updateMapMarkers();
+        renderNav();
+        if (state.route === 'dashboard' || state.route === 'incidents' || state.route === 'fusion') {
+          renderPage();
+        }
+      }
+      break;
+
+    case 'INCIDENT_UPDATED':
+      if (msg.data) {
+        const idx = state.incidents.findIndex(i => i.incident_id === msg.data.incident_id);
+        if (idx !== -1) state.incidents[idx] = msg.data;
+        else state.incidents.unshift(msg.data);
+        updateMapMarkers();
+        if (state.route === 'dashboard' || state.route === 'incidents' || state.route === 'fusion') {
+          renderPage();
+        }
+        if (state.selectedIncidentId === msg.data.incident_id && document.getElementById('drawer') && document.getElementById('drawer').classList.contains('open')) {
+          openIncidentDrawer(msg.data.incident_id);
+        }
+      }
+      break;
+
+    case 'TICKET_CREATED':
+      if (msg.data) {
+        const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
+        if (idx === -1) state.tickets.unshift(msg.data);
+        else state.tickets[idx] = msg.data;
+        renderNav();
+        if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
+      }
+      break;
+
+    case 'TICKET_STATUS_UPDATED':
+      if (msg.data) {
+        const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
+        if (idx !== -1) state.tickets[idx] = msg.data;
+        if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
+      }
+      break;
+
+    case 'STATS_UPDATED':
+      if (msg.data) {
+        state.stats = msg.data;
+        if (state.route === 'dashboard') renderPage();
+      }
+      break;
+  }
 }
 
-/* ============ BOOTSTRAP ============ */
-window.addEventListener('DOMContentLoaded', () => {
-  initMap();
-  startClock();
-  fetchInitialData();
-  connectWebSocket();
+// Initial REST fetch sync
+async function syncInitialData() {
+  try {
+    const [fleetRes, incRes, tktRes, statsRes] = await Promise.all([
+      fetch('/api/v1/fleet').then(r => r.json()).catch(() => ({ fleet: [] })),
+      fetch('/api/v1/incidents').then(r => r.json()).catch(() => ({ incidents: [] })),
+      fetch('/api/v1/tickets').then(r => r.json()).catch(() => ({ tickets: [] })),
+      fetch('/api/v1/stats').then(r => r.json()).catch(() => ({}))
+    ]);
 
-  // Resilient 3s polling fallback
-  setInterval(fetchInitialData, 3000);
-});
+    if (fleetRes.fleet) state.buses = fleetRes.fleet;
+    if (incRes.incidents) state.incidents = incRes.incidents;
+    if (tktRes.tickets) state.tickets = tktRes.tickets;
+    if (statsRes.total_incidents !== undefined) state.stats = statsRes;
+
+    render();
+  } catch (e) {
+    console.warn('Initial sync error, awaiting WebSocket:', e);
+  }
+}
+
+// Boot application
+render();
+syncInitialData();
+connectWebSocket();
+
+// Periodic fallback polling every 5 seconds to ensure absolute real-time parity
+setInterval(async () => {
+  try {
+    const [fleetRes, incRes, tktRes] = await Promise.all([
+      fetch('/api/v1/fleet').then(r => r.json()).catch(() => null),
+      fetch('/api/v1/incidents').then(r => r.json()).catch(() => null),
+      fetch('/api/v1/tickets').then(r => r.json()).catch(() => null)
+    ]);
+    if (fleetRes && fleetRes.fleet) {
+      state.buses = fleetRes.fleet;
+      updateMapMarkers();
+    }
+    if (incRes && incRes.incidents) {
+      state.incidents = incRes.incidents;
+      updateMapMarkers();
+    }
+    if (tktRes && tktRes.tickets) {
+      state.tickets = tktRes.tickets;
+    }
+  } catch (e) {}
+}, 5000);
 </script>
 </body>
 </html>

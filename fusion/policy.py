@@ -136,6 +136,14 @@ class FleetFusionEngine:
             matched_incident["bus_count"] = len(buses)
             matched_incident["last_observed_at"] = obs_time_str
 
+            # Preserve evidence image and event reference from observation
+            if not matched_incident.get("evidence_image"):
+                matched_incident["evidence_image"] = observation.get("evidence_image") or (
+                    f"runtime/evidence/{observation.get('event_id')}.jpg" if observation.get("event_id") else None
+                )
+            if not matched_incident.get("event_id"):
+                matched_incident["event_id"] = observation.get("event_id")
+
             # Update confidence & severity
             old_conf = float(matched_incident.get("confidence", 0.9))
             new_conf = min(0.99, max(old_conf, confidence) + CONFIDENCE_BOOST_PER_BUS * (len(buses) - 1))
@@ -187,9 +195,14 @@ class FleetFusionEngine:
             init_status = "VERIFIED" if confidence >= 0.95 else "CANDIDATE"
             severity = observation.get("severity", "HIGH" if confidence >= 0.9 else "MEDIUM")
             department = DEPARTMENT_ROUTING.get(event_type, "MUNICIPAL_CORPORATION")
+            evidence_img = observation.get("evidence_image") or (
+                f"runtime/evidence/{observation.get('event_id')}.jpg" if observation.get("event_id") else None
+            )
 
             new_incident = {
                 "incident_id": inc_id,
+                "event_id": observation.get("event_id"),
+                "evidence_image": evidence_img,
                 "event_type": event_type,
                 "status": init_status,
                 "latitude": obs_lat,
