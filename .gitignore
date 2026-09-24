@@ -105,6 +105,11 @@ runtime/
 *.engine
 *.safetensors
 
+# Reference assets and media
+project_x/
+*.mp4
+*.avi
+
 # Training outputs
 runs/
 wandb/

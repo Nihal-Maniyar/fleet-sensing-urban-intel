@@ -82,6 +82,31 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to custom YOLO weights (.pt, .onnx).",
     )
     parser.add_argument(
+        "--confidence",
+        type=float,
+        default=None,
+        help="YOLO detection confidence threshold (0.0 to 1.0).",
+    )
+    parser.add_argument(
+        "--event-confidence",
+        type=float,
+        default=None,
+        help="Event engine confidence threshold (0.0 to 1.0).",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["cpu", "cuda", "mps", "auto"],
+        help="Compute device for inference (cpu, cuda, mps, auto).",
+    )
+    parser.add_argument(
+        "--output-video",
+        type=str,
+        default=None,
+        help="Optional path to save annotated output video (.mp4).",
+    )
+    parser.add_argument(
         "--offline",
         action="store_true",
         help="Start in OFFLINE mode (buffers events in local SQLite WAL outbox).",
@@ -141,6 +166,9 @@ def main() -> None:
         route_id=args.route,
         video_source=args.video,
         weights_path=args.weights,
+        confidence_threshold=args.confidence,
+        event_confidence_threshold=args.event_confidence,
+        device=args.device,
         outbox_db=args.outbox_db,
         mqtt_host=args.mqtt_host,
         mqtt_port=args.mqtt_port,
@@ -152,10 +180,23 @@ def main() -> None:
     if args.headless or args.frames > 0:
         logger.info("Running in headless pipeline mode...")
         frame_idx = 0
+        writer = None
+        if args.output_video:
+            out_p = Path(args.output_video).resolve()
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            import cv2
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            fps = instance.camera.fps if hasattr(instance.camera, "fps") and instance.camera.fps > 0 else 20.0
+            w = instance.camera.width if hasattr(instance.camera, "width") and instance.camera.width > 0 else 640
+            h = instance.camera.height if hasattr(instance.camera, "height") and instance.camera.height > 0 else 480
+            writer = cv2.VideoWriter(str(out_p), fourcc, fps, (w, h))
+
         try:
             while True:
                 frame_idx += 1
                 frame, telemetry = instance.step()
+                if writer is not None and frame is not None:
+                    writer.write(frame)
                 if frame_idx % 20 == 0 or telemetry.get("latest_event_id"):
                     logger.info(
                         "[%s] Frame %d | Lat: %.5f, Lon: %.5f | Tracks: %d | Events: %d | Outbox: %d",
@@ -174,6 +215,9 @@ def main() -> None:
         except KeyboardInterrupt:
             logger.info("Stopped by user.")
         finally:
+            if writer is not None:
+                writer.release()
+                logger.info("Saved annotated output video to %s", args.output_video)
             instance.stop_loop()
         sys.exit(0)
 

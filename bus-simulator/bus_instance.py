@@ -60,6 +60,11 @@ class BusInstance:
         start_event_seq: Optional[int] = None,
         initial_connectivity: str = "ONLINE",
         target_fps: int = 20,
+        confidence_threshold: Optional[float] = None,
+        event_confidence_threshold: Optional[float] = None,
+        device: Optional[str] = None,
+        min_persistence_frames: Optional[int] = None,
+        evidence_storage_path: Optional[str] = None,
     ) -> None:
         self.bus_id = bus_id
         self.route_id = route_id
@@ -82,8 +87,17 @@ class BusInstance:
             self.camera = OpenCVFileStream(src)
 
         # 2. Initialize AI Detector & ByteTrack Tracker
-        self.detector = YOLODetector(weights_path=weights_path)
-        self.tracker = ByteTracker(track_thresh=0.45, low_thresh=0.15, max_age=30, min_hits=2)
+        self.detector = YOLODetector(
+            weights_path=weights_path,
+            confidence_threshold=confidence_threshold,
+            device=device,
+        )
+        self.tracker = ByteTracker(
+            track_thresh=confidence_threshold or 0.40,
+            low_thresh=0.15,
+            max_age=30,
+            min_hits=2,
+        )
 
         # 3. Initialize Sensors
         self.gnss = GNSSSimulator(route_id=self.route_id, speed_kmh=36.0)
@@ -101,10 +115,12 @@ class BusInstance:
 
         self.event_engine = TemporalEventEngine(
             bus_id=self.bus_id,
-            min_persistence_frames=3,
+            min_persistence_frames=min_persistence_frames,
+            min_confidence=event_confidence_threshold,
             spatial_suppression_meters=15.0,
             time_suppression_seconds=25.0,
             start_event_seq=seq_start,
+            evidence_storage_path=evidence_storage_path,
         )
 
         # 5. Initialize Storage & MQTT Transport
@@ -343,8 +359,8 @@ class BusInstance:
             box_color = (0, 0, 240) if trk.class_name == "POTHOLE" else (0, 180, 240)
             cv2.rectangle(display, (x1, y1), (x2, y2), box_color, 2)
 
-            # Label overlay: Class, Track ID, Confidence
-            tag = f"#{trk.track_id} {trk.class_name} {trk.confidence:.2f}"
+            # Label overlay: Class, Confidence, Track ID
+            tag = f"{trk.class_name} {trk.confidence:.2f} | Track ID: {trk.track_id}"
             (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
             cv2.rectangle(display, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), box_color, -1)
             cv2.putText(

@@ -13,9 +13,12 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 try:
-    from detection.interface import Detection, compute_iou
+    from edge.detection.interface import Detection, compute_iou
 except ImportError:
-    from ..detection.interface import Detection, compute_iou
+    try:
+        from detection.interface import Detection, compute_iou
+    except ImportError:
+        from ..detection.interface import Detection, compute_iou
 
 
 class TrackState(Enum):
