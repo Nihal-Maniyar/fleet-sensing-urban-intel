@@ -106,7 +106,8 @@ runtime/
 *.safetensors
 
 # Reference assets and media
-project_x/
+models/
+data/
 *.mp4
 *.avi
 

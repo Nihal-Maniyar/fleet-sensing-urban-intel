@@ -72,14 +72,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--video",
         type=str,
-        default="synthetic",
-        help="Video source: 'synthetic' (default animated road), or file path (.mp4), or camera index ('0').",
+        default="real",
+        help="Video source: 'real' (default real edge-model road video), file path (.mp4), 'synthetic', or camera index ('0').",
     )
     parser.add_argument(
         "--weights",
         type=str,
-        default=None,
-        help="Optional path to custom YOLO weights (.pt, .onnx).",
+        default="models/best.pt",
+        help="Path to custom YOLO weights (.pt, .onnx) (default: models/best.pt).",
     )
     parser.add_argument(
         "--confidence",

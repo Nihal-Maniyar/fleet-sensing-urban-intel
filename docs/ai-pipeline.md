@@ -96,7 +96,7 @@ from ai import AIPipeline
 
 # Initialize pipeline with custom thresholds and device
 pipeline = AIPipeline(
-    model_path="project_x/models/best.pt",
+    model_path="models/best.pt",
     model_confidence=0.25,
     event_confidence=0.50,
     device="mps",  # or "cuda", "cpu"
@@ -104,7 +104,7 @@ pipeline = AIPipeline(
 
 # Process a video file, generate evidence, and output annotated HUD video
 events = pipeline.process_video(
-    video_path="project_x/input/road_video.mp4",
+    video_path="data/videos/road_video.mp4",
     output_path="runtime/output/annotated_run.mp4",
     max_frames=120,
     bus_id="BUS-001",
@@ -145,8 +145,8 @@ The pipeline is configured via environment variables or CLI arguments. Defaults 
 ```bash
 python bus-simulator/main.py \
   --bus-id BUS-001 \
-  --video project_x/input/road_video.mp4 \
-  --weights project_x/models/best.pt \
+  --video data/videos/road_video.mp4 \
+  --weights models/best.pt \
   --confidence 0.25 \
   --event-confidence 0.50 \
   --device mps \
@@ -168,8 +168,8 @@ python bus-simulator/main.py \
 ```bash
 python bus-simulator/main.py \
   --bus-id BUS-001 \
-  --video project_x/input/road_video.mp4 \
-  --weights project_x/models/best.pt \
+  --video data/videos/road_video.mp4 \
+  --weights models/best.pt \
   --output-video runtime/output/hud_run.mp4 \
   --headless \
   --frames 120

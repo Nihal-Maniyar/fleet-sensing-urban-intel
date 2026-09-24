@@ -339,7 +339,7 @@ class AIPipeline:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AI & Computer Vision Pothole Sensing Pipeline")
-    parser.add_argument("--video", type=str, default="project_x/input/road_video.mp4", help="Input road video file")
+    parser.add_argument("--video", type=str, default="data/videos/road_video.mp4", help="Input road video file")
     parser.add_argument("--output", type=str, default=None, help="Output annotated video file (.mp4)")
     parser.add_argument("--model", type=str, default=None, help="YOLO model weights path (.pt)")
     parser.add_argument("--confidence", type=float, default=None, help="Detection confidence threshold")

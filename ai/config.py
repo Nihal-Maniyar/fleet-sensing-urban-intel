@@ -11,7 +11,8 @@ from pathlib import Path
 
 # Base Paths
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MODEL_PATH = str(REPO_ROOT / "project_x" / "models" / "best.pt")
+DEFAULT_MODEL_PATH = str(REPO_ROOT / "models" / "best.pt")
+DEFAULT_VIDEO_PATH = str(REPO_ROOT / "data" / "videos" / "road_video.mp4")
 DEFAULT_EVIDENCE_PATH = "runtime/evidence"
 
 # Model Configuration

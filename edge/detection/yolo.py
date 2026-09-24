@@ -72,9 +72,9 @@ class YOLODetector:
             weights_path = os.environ.get("MODEL_PATH")
         if weights_path is None:
             candidates = [
-                Path("project_x/models/best.pt"),
-                Path(__file__).resolve().parent.parent.parent / "project_x" / "models" / "best.pt",
                 Path("models/best.pt"),
+                Path(__file__).resolve().parent.parent.parent / "models" / "best.pt",
+                Path(__file__).resolve().parent.parent / "models" / "best.pt",
                 Path("best.pt"),
             ]
             for cand in candidates:

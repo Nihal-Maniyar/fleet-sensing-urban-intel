@@ -115,6 +115,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run bus simulators in headless pipeline mode without local simulator web UIs.",
     )
+    parser.add_argument(
+        "--video",
+        type=str,
+        default="data/videos/road_video.mp4",
+        help="Input video file or 'real' for edge model detection (default: data/videos/road_video.mp4).",
+    )
+    parser.add_argument(
+        "--weights",
+        type=str,
+        default="models/best.pt",
+        help="Path to trained YOLO model weights (default: models/best.pt).",
+    )
     return parser.parse_args()
 
 
@@ -236,6 +248,10 @@ class ServiceManager:
             backend_url,
             "--start-seq",
             "10001",
+            "--video",
+            self.args.video,
+            "--weights",
+            self.args.weights,
         ]
         if self.args.headless:
             bus1_cmd.append("--headless")
@@ -259,6 +275,7 @@ class ServiceManager:
             f"{Colors.BLUE}[RUNNER]{Colors.RESET} Starting Bus 2 ({self.args.bus2_id}) on same corridor '{self.args.route}'...",
             flush=True,
         )
+        bus2_video = "data/videos/road_video1.mp4" if Path("data/videos/road_video1.mp4").exists() else self.args.video
         bus2_cmd = [
             sys.executable,
             "bus-simulator/main.py",
@@ -274,6 +291,10 @@ class ServiceManager:
             backend_url,
             "--start-seq",
             "20001",
+            "--video",
+            bus2_video,
+            "--weights",
+            self.args.weights,
         ]
         if self.args.headless:
             bus2_cmd.append("--headless")
