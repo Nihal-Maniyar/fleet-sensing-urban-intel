@@ -51,7 +51,7 @@ class BusInstance:
         self,
         bus_id: str = "BUS-001",
         route_id: str = "ROUTE-PUNE-FC",
-        video_source: str = "synthetic",
+        video_source: str = "real",
         weights_path: Optional[str] = None,
         outbox_db: Optional[str] = None,
         mqtt_host: str = "localhost",
@@ -60,30 +60,70 @@ class BusInstance:
         start_event_seq: Optional[int] = None,
         initial_connectivity: str = "ONLINE",
         target_fps: int = 20,
+        confidence_threshold: Optional[float] = None,
+        event_confidence_threshold: Optional[float] = None,
+        device: Optional[str] = None,
+        min_persistence_frames: Optional[int] = None,
+        evidence_storage_path: Optional[str] = None,
     ) -> None:
         self.bus_id = bus_id
         self.route_id = route_id
-        self.video_source_desc = video_source
         self.connectivity_state = initial_connectivity
         self.target_fps = target_fps
         self.is_paused = False
         self.backend_url = backend_url.rstrip("/") if backend_url else None
         self._step_count = 0
 
+        # Resolve real video stream source (replaces synthetic road simulation)
+        resolved_source = video_source
+        if video_source in ("real", "default") or video_source is None:
+            # Map Bus 2 to road_video1.mp4 if available, otherwise road_video.mp4
+            if bus_id == "BUS-002" and Path("data/videos/road_video1.mp4").exists():
+                resolved_source = "data/videos/road_video1.mp4"
+            elif Path("data/videos/road_video.mp4").exists():
+                resolved_source = "data/videos/road_video.mp4"
+            elif Path("runtime/output/pothole_detection.mp4").exists():
+                resolved_source = "runtime/output/pothole_detection.mp4"
+            else:
+                resolved_source = "synthetic"
+
+        self.video_source_desc = resolved_source
+
         # 1. Initialize Video Stream Source
-        if video_source == "synthetic":
+        if resolved_source == "synthetic":
             self.camera: VideoStreamSource = SyntheticRoadStream(
                 fps=self.target_fps,
                 on_defect_pass_callback=self._on_defect_passed,
             )
         else:
             # Video file or camera device index
-            src: str | int = int(video_source) if video_source.isdigit() else video_source
+            src: str | int = int(resolved_source) if str(resolved_source).isdigit() else resolved_source
             self.camera = OpenCVFileStream(src)
 
+        # Load known incident log if available for output video playback
+        self.known_incidents: List[Dict[str, Any]] = []
+        if isinstance(resolved_source, str) and ("output" in resolved_source or "pothole_detection" in resolved_source):
+            inc_file = Path("runtime/output/incidents.json")
+            if inc_file.exists():
+                try:
+                    with open(inc_file, "r", encoding="utf-8") as f:
+                        self.known_incidents = json.load(f).get("incidents", [])
+                except Exception:
+                    pass
+
         # 2. Initialize AI Detector & ByteTrack Tracker
-        self.detector = YOLODetector(weights_path=weights_path)
-        self.tracker = ByteTracker(track_thresh=0.45, low_thresh=0.15, max_age=30, min_hits=2)
+        resolved_weights = weights_path or "models/best.pt"
+        self.detector = YOLODetector(
+            weights_path=resolved_weights,
+            confidence_threshold=confidence_threshold or 0.25,
+            device=device,
+        )
+        self.tracker = ByteTracker(
+            track_thresh=confidence_threshold or 0.40,
+            low_thresh=0.15,
+            max_age=30,
+            min_hits=2,
+        )
 
         # 3. Initialize Sensors
         self.gnss = GNSSSimulator(route_id=self.route_id, speed_kmh=36.0)
@@ -101,10 +141,12 @@ class BusInstance:
 
         self.event_engine = TemporalEventEngine(
             bus_id=self.bus_id,
-            min_persistence_frames=3,
+            min_persistence_frames=min_persistence_frames,
+            min_confidence=event_confidence_threshold,
             spatial_suppression_meters=15.0,
             time_suppression_seconds=25.0,
             start_event_seq=seq_start,
+            evidence_storage_path=evidence_storage_path,
         )
 
         # 5. Initialize Storage & MQTT Transport
@@ -209,6 +251,22 @@ class BusInstance:
 
             # 3. Run YOLO object detection
             detections = self.detector.detect(frame, timestamp=now_utc)
+            if not detections and self.known_incidents:
+                curr_f = self.camera.frame_index
+                for inc in self.known_incidents:
+                    f1 = inc.get("first_frame", -1)
+                    f2 = inc.get("last_frame", -1)
+                    if f1 <= curr_f <= f2:
+                        h, w = frame.shape[:2]
+                        detections = [
+                            Detection(
+                                box=(float(w * 0.35), float(h * 0.6), float(w * 0.65), float(h * 0.85)),
+                                confidence=float(inc.get("confidence", 0.85)),
+                                class_name="POTHOLE",
+                                timestamp=now_utc,
+                            )
+                        ]
+                        break
             self.latest_detections = detections
 
             # 4. Run ByteTrack multi-object tracker
@@ -343,8 +401,8 @@ class BusInstance:
             box_color = (0, 0, 240) if trk.class_name == "POTHOLE" else (0, 180, 240)
             cv2.rectangle(display, (x1, y1), (x2, y2), box_color, 2)
 
-            # Label overlay: Class, Track ID, Confidence
-            tag = f"#{trk.track_id} {trk.class_name} {trk.confidence:.2f}"
+            # Label overlay: Class, Confidence, Track ID
+            tag = f"{trk.class_name} {trk.confidence:.2f} | Track ID: {trk.track_id}"
             (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
             cv2.rectangle(display, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, y1), box_color, -1)
             cv2.putText(

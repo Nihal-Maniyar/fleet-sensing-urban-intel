@@ -17,18 +17,21 @@ from typing import Callable, Dict, List, Optional, Tuple
 import numpy as np
 
 try:
-    from detection.interface import Detection
-    from evidence.capture import capture_evidence_image
-    from tracking.byte_tracker import STrack
-    from events.schema import Event
-except (ImportError, ValueError) as err:
+    from edge.detection.interface import Detection
+    from edge.evidence.capture import capture_evidence_image
+    from edge.tracking.byte_tracker import STrack
+    from edge.events.schema import Event
+except (ImportError, ValueError):
     try:
+        from detection.interface import Detection
+        from evidence.capture import capture_evidence_image
+        from tracking.byte_tracker import STrack
+        from events.schema import Event
+    except (ImportError, ValueError):
         from ..detection.interface import Detection
         from ..evidence.capture import capture_evidence_image
         from ..tracking.byte_tracker import STrack
         from .schema import Event
-    except (ImportError, ValueError):
-        raise err
 
 logger = logging.getLogger("actual_bus_simulator.events")
 
