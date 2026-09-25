@@ -44,7 +44,7 @@ class Colors:
 def print_banner() -> None:
     banner = f"""
 {Colors.CYAN}{Colors.BOLD}================================================================================
-  FLEET SENSING URBAN INTELLIGENCE PLATFORM  |  SIH 2026 BEYONDERS
+  FLEET SENSING URBAN INTELLIGENCE PLATFORM
 ================================================================================{Colors.RESET}
   Real-Time Edge AI Sensing (YOLO + ByteTrack) -> Dual-Transport Ingestion
   -> Spatial-Temporal Fleet Fusion -> Verified Incident Tickets -> Live GIS
@@ -275,7 +275,7 @@ class ServiceManager:
             f"{Colors.BLUE}[RUNNER]{Colors.RESET} Starting Bus 2 ({self.args.bus2_id}) on same corridor '{self.args.route}'...",
             flush=True,
         )
-        bus2_video = "data/videos/road_video1.mp4" if Path("data/videos/road_video1.mp4").exists() else self.args.video
+        bus2_video = self.args.video
         bus2_cmd = [
             sys.executable,
             "bus-simulator/main.py",
