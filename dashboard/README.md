@@ -1,6 +1,6 @@
 # Fleet Sensing Urban Intel — Real-Time GIS Operations Dashboard
 
-Interactive GIS and civic operations dashboard for the SIH 2026 Fleet Sensing Urban Intelligence prototype in Pune, Maharashtra.
+Interactive GIS and civic operations dashboard for the Fleet Sensing Urban Intelligence platform in Pune, Maharashtra.
 
 Owned by **Member 5 (GIS Dashboard)** per `docs/team-tasks/member-5-gis-dashboard.md`, `frontend-design/SKILL.md`, and `AGENTS.md`.
 

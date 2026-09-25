@@ -77,11 +77,10 @@ class BusInstance:
         # Resolve real video stream source (replaces synthetic road simulation)
         resolved_source = video_source
         if video_source in ("real", "default") or video_source is None:
-            # Map Bus 2 to road_video1.mp4 if available, otherwise road_video.mp4
-            if bus_id == "BUS-002" and Path("data/videos/road_video1.mp4").exists():
-                resolved_source = "data/videos/road_video1.mp4"
-            elif Path("data/videos/road_video.mp4").exists():
+            if Path("data/videos/road_video.mp4").exists():
                 resolved_source = "data/videos/road_video.mp4"
+            elif Path("data/videos/road_video1.mp4").exists():
+                resolved_source = "data/videos/road_video1.mp4"
             elif Path("runtime/output/pothole_detection.mp4").exists():
                 resolved_source = "runtime/output/pothole_detection.mp4"
             else:

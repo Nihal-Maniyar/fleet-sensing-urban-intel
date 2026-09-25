@@ -1,6 +1,6 @@
-# Beyonders Urban Intelligence
+# Fleet Sensing Urban Intel
 
-AI-Powered Mobile Urban Intelligence Platform — SIH 2026 prototype.
+AI-Powered Mobile Urban Intelligence Platform.
 
 The prototype uses city transit buses as mobile sensing units to identify civic-road and safety defects, attach evidence and road-aligned location data, combine observations across the fleet, and display prioritized incidents and civic-ticket progress on a real-time GIS map.
 
