@@ -99,17 +99,32 @@ a { color: inherit; text-decoration: none; }
   padding: 18px 12px calc(16px + env(safe-area-inset-bottom, 0px));
   position: sticky; top: 0; align-self: flex-start; height: 100vh;
   z-index: 40;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s ease;
+}
+.sidebar.collapsed {
+  width: 68px; min-width: 68px;
+  padding: 18px 8px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .brand { display: flex; align-items: center; gap: 11px; padding: 6px 10px 20px; border-bottom: 1px solid var(--navy-line); }
+.sidebar.collapsed .brand { justify-content: center; padding: 6px 0 16px; }
 .brand-mark {
   width: 36px; height: 36px; border-radius: 9px;
   background: linear-gradient(155deg, var(--teal), #123246);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; color: #E3F0F4;
+  cursor: pointer;
 }
 .brand-mark svg { width: 20px; height: 20px; }
 .brand-text .t1 { font-family: var(--font-display); font-weight: 700; font-size: 14.5px; line-height: 1.15; color: #F3F6FA; }
 .brand-text .t2 { font-size: 10.5px; color: #8FA0B8; letter-spacing: .02em; margin-top: 2px; }
+.sidebar.collapsed .brand-text { display: none; }
+.sidebar-collapse-btn {
+  margin-left: auto; background: transparent; color: #8FA0B8; border-radius: 6px;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease;
+}
+.sidebar-collapse-btn:hover { background: var(--navy-soft); color: #fff; border-color: var(--navy-line); }
+.sidebar.collapsed .sidebar-collapse-btn { display: none; }
 
 .nav { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; flex: 1; overflow-y: auto; }
 .nav-item {
@@ -118,7 +133,11 @@ a { color: inherit; text-decoration: none; }
   color: #B7C2D2; background: transparent; border: none; width: 100%; text-align: left;
   font-size: 13.5px; font-weight: 500;
   transition: background .15s ease, color .15s ease;
+  position: relative;
 }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; gap: 0; }
+.sidebar.collapsed .nav-item span { display: none; }
+.sidebar.collapsed .nav-item .cnt { display: none; }
 .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: .9; }
 .nav-item:hover { background: var(--navy-soft); color: #F0F3F8; }
 .nav-item.active { background: var(--teal); color: #fff; }
@@ -133,6 +152,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px; color: #7488A0; line-height: 1.5;
 }
 .sidebar-foot b { color: #B7C2D2; }
+.sidebar.collapsed .sidebar-foot { display: none; }
 
 /* ---- Main column ---- */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -417,16 +437,51 @@ select, .btn, input[type=text] {
 
 /* Kanban Board */
 .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.kcol-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 10px; }
+.kcol-column {
+  background: var(--surface-sunken); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column;
+}
+.kcol-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 10px; }
 .kcol-head h4 { font-size: 12px; font-weight: 700; }
-.kcol-head .n { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
-.kcol-body { display: flex; flex-direction: column; gap: 8px; min-height: 80px; }
-.tcard { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: transform 0.1s ease, box-shadow 0.1s ease; }
-.tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.kcol-head .n {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);
+  background: var(--surface); padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border-soft);
+}
+.kcol-body {
+  display: flex; flex-direction: column; gap: 8px; min-height: 220px;
+  border-radius: 8px; padding: 4px; transition: background-color 0.15s ease, outline 0.15s ease;
+}
+.kcol-body.drag-over {
+  background: rgba(28, 110, 140, 0.14);
+  outline: 2px dashed var(--teal);
+  outline-offset: -2px;
+}
+.tcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+  padding: 12px; box-shadow: var(--shadow-sm); cursor: grab;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  user-select: none;
+}
+.tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--teal); }
+.tcard:active { cursor: grabbing; }
+.tcard.is-dragging { opacity: 0.35; transform: scale(0.97); }
+.tcard-drag-handle {
+  display: inline-flex; align-items: center; margin-right: 6px;
+  color: var(--ink-faint); font-size: 12px; cursor: grab; letter-spacing: -1px;
+}
 .tcard .tid { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--teal-ink); }
 .tcard .ttype { font-size: 12.5px; font-weight: 600; margin-top: 4px; }
 .tcard .tloc { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
 .tcard .tfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.tcard-actions {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 6px;
+  border-top: 1px dashed var(--border-soft); font-size: 10.5px;
+}
+.tcard-move-select {
+  font-size: 10.5px; padding: 2px 6px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--surface-sunken); color: var(--ink);
+  cursor: pointer; outline: none; margin-left: auto;
+}
 .sla { font-size: 10px; font-family: var(--font-mono); color: var(--ink-faint); }
 
 /* Fusion queue */
@@ -459,9 +514,9 @@ select, .btn, input[type=text] {
 <div class="app">
 
   <!-- ============ SIDEBAR ============ -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="brand-mark">
+      <div class="brand-mark" id="brandToggleBtn" title="Toggle navigation panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
         </svg>
@@ -470,10 +525,13 @@ select, .btn, input[type=text] {
         <div class="t1">Fleet Sensing<br>Urban Intel</div>
         <div class="t2">Pune Municipal Pilot</div>
       </div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
     </div>
     <div class="nav" id="nav"></div>
     <div class="sidebar-foot">
-      Prototype build for <b>SIH 2026</b><br>
+      <b>Fleet Sensing Urban Intel</b><br>
       Pune Corridor · YOLO + ByteTrack Edge AI
     </div>
   </nav>
@@ -481,9 +539,18 @@ select, .btn, input[type=text] {
   <!-- ============ MAIN ============ -->
   <div class="main">
     <header class="topbar">
-      <div>
-        <h1 id="pageTitle">Dashboard</h1>
-        <div class="sub" id="pageSub">Fleet-wide civic sensing overview</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="iconbtn sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle Navigation Sidebar" aria-label="Toggle navigation sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <div class="sub" id="pageSub">Fleet-wide civic sensing overview</div>
+        </div>
       </div>
       <div class="search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -514,12 +581,37 @@ select, .btn, input[type=text] {
 <script>
 /* =========================================================================
    FLEET SENSING URBAN INTEL — REAL-TIME GIS DASHBOARD
-   SIH 2026 Beyonders | Member 5: Real-time GIS & Public Transit Intelligence
+   Member 5: Real-time GIS & Public Transit Intelligence
    ========================================================================= */
 
 /* ---------- Storage & Preferences ---------- */
 function getPref(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e) { return d; } }
 function setPref(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+/* ---------- Sidebar Toggle ---------- */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  setPref('fsui_sidebar_collapsed', isCollapsed ? '1' : '0');
+  if (leafletMap) {
+    setTimeout(() => leafletMap.invalidateSize(), 260);
+  }
+}
+
+(function initSidebar() {
+  const saved = getPref('fsui_sidebar_collapsed', '0');
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && saved === '1') {
+    sidebar.classList.add('collapsed');
+  }
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const collapseBtn = document.getElementById('sidebarCollapseBtn');
+  const brandBtn = document.getElementById('brandToggleBtn');
+  if (toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
+  if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
+  if (brandBtn) brandBtn.addEventListener('click', toggleSidebar);
+})();
 
 /* ---------- Theme Switcher ---------- */
 (function initTheme() {
@@ -545,8 +637,7 @@ function tickClock() {
 tickClock(); setInterval(tickClock, 30000);
 
 /* =========================================================================
-   AUTHENTIC PUNE ROAD CORRIDORS & ROAD-SNAPPING (FC Road KML Data)
-   Derived directly from road_maps/ FC_Road_Pune.kml
+   AUTHENTIC PUNE ROAD CORRIDORS & ROAD-SNAPPING
    ========================================================================= */
 const FC_ROAD_KML_COORDS = [
   [18.51595, 73.84207], [18.51601, 73.84204], [18.51606, 73.84203], [18.51607, 73.84202],
@@ -567,37 +658,77 @@ const FC_ROAD_KML_COORDS = [
   [18.53124, 73.84451]
 ];
 
-// Road snapping projection onto polyline
+const PUNE_CORRIDORS_GEO = {
+  'ROUTE-PUNE-FC': {
+    name: 'FC Road Corridor',
+    color: '#1C6E8C',
+    coords: FC_ROAD_KML_COORDS
+  },
+  'ROUTE-PUNE-JM': {
+    name: 'JM Road Corridor',
+    color: '#2E7D53',
+    coords: [
+      [18.5222, 73.8493],
+      [18.5255, 73.8500],
+      [18.5280, 73.8510],
+      [18.5325, 73.8525]
+    ]
+  },
+  'ROUTE-PUNE-KARVE': {
+    name: 'Karve Road Corridor',
+    color: '#CC7A2E',
+    coords: [
+      [18.5135, 73.8385],
+      [18.5110, 73.8325],
+      [18.5085, 73.8268],
+      [18.5060, 73.8210]
+    ]
+  },
+  'ROUTE-PUNE-SHIVAJI': {
+    name: 'Shivaji Road Central Corridor',
+    color: '#5B3FA8',
+    coords: [
+      [18.5018, 73.8580],
+      [18.5165, 73.8562],
+      [18.5218, 73.8565],
+      [18.5328, 73.8550]
+    ]
+  }
+};
+
+// Multi-corridor Road snapping projection
 function snapToRoad(lat, lon) {
   if (!lat || !lon) return [18.5228, 73.8415];
   let minDistanceSq = Infinity;
   let bestPoint = [lat, lon];
 
-  for (let i = 0; i < FC_ROAD_KML_COORDS.length - 1; i++) {
-    const p1 = FC_ROAD_KML_COORDS[i];
-    const p2 = FC_ROAD_KML_COORDS[i + 1];
+  for (const key of Object.keys(PUNE_CORRIDORS_GEO)) {
+    const coords = PUNE_CORRIDORS_GEO[key].coords;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
 
-    const dx = p2[0] - p1[0];
-    const dy = p2[1] - p1[1];
-    const lenSq = dx * dx + dy * dy;
+      const dx = p2[0] - p1[0];
+      const dy = p2[1] - p1[1];
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) continue;
 
-    if (lenSq === 0) continue;
+      let t = ((lat - p1[0]) * dx + (lon - p1[1]) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
 
-    let t = ((lat - p1[0]) * dx + (lon - p1[1]) * dy) / lenSq;
-    t = Math.max(0, Math.min(1, t));
+      const projLat = p1[0] + t * dx;
+      const projLon = p1[1] + t * dy;
+      const distSq = (lat - projLat) * (lat - projLat) + (lon - projLon) * (lon - projLon);
 
-    const projLat = p1[0] + t * dx;
-    const projLon = p1[1] + t * dy;
-
-    const distSq = (lat - projLat) * (lat - projLat) + (lon - projLon) * (lon - projLon);
-    if (distSq < minDistanceSq) {
-      minDistanceSq = distSq;
-      bestPoint = [projLat, projLon];
+      if (distSq < minDistanceSq) {
+        minDistanceSq = distSq;
+        bestPoint = [projLat, projLon];
+      }
     }
   }
 
   // Snap if within reasonable corridor vicinity (~250m)
-  if (minDistanceSq < 0.0001) {
+  if (minDistanceSq < 0.00015) {
     return [Number(bestPoint[0].toFixed(5)), Number(bestPoint[1].toFixed(5))];
   }
   return [Number(lat.toFixed(5)), Number(lon.toFixed(5))];
@@ -622,6 +753,8 @@ const state = {
   },
   connected: false,
   searchTerm: '',
+  mapCenter: [18.5228, 73.8420],
+  mapZoom: 15,
 };
 
 /* =========================================================================
@@ -654,7 +787,7 @@ function renderNav() {
     if (r.id === 'tickets' && state.tickets.length) countBadge = `<span class="cnt">${state.tickets.length}</span>`;
 
     return `
-      <button class="nav-item ${r.id === state.route ? 'active' : ''}" data-route="${r.id}">
+      <button class="nav-item ${r.id === state.route ? 'active' : ''}" data-route="${r.id}" title="${r.label}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[r.id]}</svg>
         <span>${r.label}</span>
         ${countBadge}
@@ -684,6 +817,7 @@ function updateDsIndicator(connected) {
 let leafletMap = null;
 let tileLayer = null;
 let roadPolyline = null;
+let corridorPolylines = {};
 let busMarkers = {};
 let incidentMarkers = {};
 
@@ -691,18 +825,35 @@ function initLeafletMap() {
   const container = document.getElementById('leafletMap');
   if (!container) return;
 
+  // If map already initialized and attached, invalidate size and refresh markers without view reset
+  if (leafletMap && leafletMap.getContainer() && container.contains(leafletMap.getContainer())) {
+    leafletMap.invalidateSize();
+    updateMapMarkers();
+    return;
+  }
+
   if (leafletMap) {
-    leafletMap.remove();
+    try { leafletMap.remove(); } catch (e) {}
     leafletMap = null;
     busMarkers = {};
     incidentMarkers = {};
+    corridorPolylines = {};
   }
 
-  // Center on FC Road corridor Pune
+  // Restore previous center and zoom so user pan/zoom is never disrupted
+  const initCenter = state.mapCenter || [18.5228, 73.8420];
+  const initZoom = state.mapZoom || 15;
+
   leafletMap = L.map('leafletMap', {
-    center: [18.5228, 73.8420],
-    zoom: 15,
+    center: initCenter,
+    zoom: initZoom,
     zoomControl: true,
+  });
+
+  // Track map view changes
+  leafletMap.on('moveend', () => {
+    state.mapCenter = leafletMap.getCenter();
+    state.mapZoom = leafletMap.getZoom();
   });
 
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
@@ -715,25 +866,29 @@ function initLeafletMap() {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
   }).addTo(leafletMap);
 
-  // Plot FC Road Corridor from KML coordinates
-  // 1. Casing line for high-contrast visibility
-  L.polyline(FC_ROAD_KML_COORDS, {
-    color: isDark ? '#0F4A61' : '#0E1B2C',
-    weight: 9,
-    opacity: 0.6,
-    lineCap: 'round',
-    lineJoin: 'round'
-  }).addTo(leafletMap);
+  // Plot All Pune Road Corridors
+  for (const [routeId, corridor] of Object.entries(PUNE_CORRIDORS_GEO)) {
+    // 1. Casing line for contrast
+    L.polyline(corridor.coords, {
+      color: isDark ? '#0F4A61' : '#0E1B2C',
+      weight: 8,
+      opacity: 0.55,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(leafletMap);
 
-  // 2. Active transit corridor centerline
-  roadPolyline = L.polyline(FC_ROAD_KML_COORDS, {
-    color: '#1C6E8C',
-    weight: 5,
-    opacity: 0.95,
-    lineCap: 'round',
-    lineJoin: 'round',
-    dashArray: null,
-  }).addTo(leafletMap);
+    // 2. Active transit corridor centerline
+    const poly = L.polyline(corridor.coords, {
+      color: corridor.color,
+      weight: 4.5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(leafletMap);
+
+    corridorPolylines[routeId] = poly;
+  }
+  roadPolyline = corridorPolylines['ROUTE-PUNE-FC'] || null;
 
   // Render markers
   updateMapMarkers();
@@ -749,10 +904,24 @@ function updateMapTileTheme(theme) {
   tileLayer.setUrl('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
 }
 
-function resetMapToFCRoad() {
-  if (leafletMap && roadPolyline) {
-    leafletMap.fitBounds(roadPolyline.getBounds(), { padding: [30, 30] });
+function focusCorridor(name) {
+  if (!leafletMap) return;
+  if (name === 'ALL') {
+    const polys = Object.values(corridorPolylines);
+    if (polys.length) {
+      const group = L.featureGroup(polys);
+      leafletMap.fitBounds(group.getBounds(), { padding: [30, 30] });
+    }
+  } else {
+    const key = `ROUTE-PUNE-${name.toUpperCase()}`;
+    if (corridorPolylines[key]) {
+      leafletMap.fitBounds(corridorPolylines[key].getBounds(), { padding: [30, 30] });
+    }
   }
+}
+
+function resetMapToFCRoad() {
+  focusCorridor('FC');
 }
 
 function mapMarkerColorHex(type) {
@@ -1081,7 +1250,7 @@ function openTicketDrawer(ticketId) {
   const body = `
     <dl class="kv">
       <dt>Incident ID</dt><dd class="mono">${t.incident_id || 'INC-000001'}</dd>
-      <dt>Workorder ID</dt><dd class="mono">${t.workorder_id || 'WO-2026-000001'}</dd>
+      <dt>Workorder ID</dt><dd class="mono">${t.workorder_id || ('WO-' + new Date().getFullYear() + '-000001')}</dd>
       <dt>Authority</dt><dd>Pune Municipal Corporation (Road Dept)</dd>
       <dt>Priority</dt><dd>${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}</dd>
       <dt>Repair SLA</dt><dd class="mono">${t.estimated_repair_sla_hours || 48}h</dd>
@@ -1177,9 +1346,9 @@ async function raiseTicketForIncident(incidentId) {
   if (!inc) return;
 
   const ticketPayload = {
-    ticket_id: `POT-2026-${incidentId.split('-').pop() || '000001'}`,
+    ticket_id: `POT-${new Date().getFullYear()}-${incidentId.split('-').pop() || '000001'}`,
     incident_id: incidentId,
-    workorder_id: `WO-2026-${incidentId.split('-').pop() || '000001'}`,
+    workorder_id: `WO-${new Date().getFullYear()}-${incidentId.split('-').pop() || '000001'}`,
     event_type: inc.event_type || inc.type || 'POTHOLE',
     confidence: inc.confidence || 0.94,
     latitude: inc.latitude || 18.5204,
@@ -1201,7 +1370,8 @@ async function raiseTicketForIncident(incidentId) {
       state.tickets.push(data.ticket);
       inc.ticket_id = data.ticket.ticket_id;
       openIncidentDrawer(incidentId);
-      if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
+      if (state.route === 'tickets') renderPage();
+      else if (state.route === 'dashboard') updateDashboardKpis();
     }
   } catch (err) {
     console.error('Failed to raise ticket:', err);
@@ -1222,38 +1392,39 @@ function pageDashboard() {
   <div class="kpi-row">
     <div class="kpi">
       <div class="label">Total Incidents</div>
-      <div class="value">${total}</div>
+      <div class="value" id="kpiTotal">${total}</div>
       <div class="delta up">Fused from live detections</div>
     </div>
     <div class="kpi">
       <div class="label">Verified Incidents</div>
-      <div class="value">${verified}</div>
+      <div class="value" id="kpiVerified">${verified}</div>
       <div class="delta up">Multi-bus corroborated</div>
     </div>
     <div class="kpi">
       <div class="label">Open Tickets</div>
-      <div class="value">${openTickets}</div>
-      <div class="delta down">${state.tickets.filter(t => t.status === 'RESOLVED').length} resolved</div>
+      <div class="value" id="kpiOpenTickets">${openTickets}</div>
+      <div class="delta down" id="kpiResolvedSummary">${state.tickets.filter(t => t.status === 'RESOLVED').length} resolved</div>
     </div>
     <div class="kpi">
       <div class="label">Fleet Online</div>
-      <div class="value">${onlineBuses}/${fleetTotal}</div>
+      <div class="value" id="kpiOnlineBuses">${onlineBuses}/${fleetTotal}</div>
       <div class="delta up">Edge AI streaming live</div>
     </div>
   </div>
 
   <div class="panel map-panel">
     <div class="panel-head">
-      <h3>Live GIS Map — Pune FC Road Corridor</h3>
-      <span class="link" onclick="resetMapToFCRoad()">Center Corridor</span>
+      <h3>Live GIS Map — Pune Transit Corridors</h3>
+      <span class="link" onclick="focusCorridor('ALL')">View All Corridors</span>
     </div>
     <div class="map-wrap">
       <div id="leafletMap"></div>
       <div class="map-controls-bar">
-        <button class="map-ctl-btn" onclick="resetMapToFCRoad()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M12 3v18"/></svg>
-          FC Road
-        </button>
+        <button class="map-ctl-btn" onclick="focusCorridor('FC')" title="Focus FC Road Corridor">FC Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('JM')" title="Focus JM Road Corridor">JM Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('KARVE')" title="Focus Karve Road Corridor">Karve Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('SHIVAJI')" title="Focus Shivaji Road Corridor">Shivaji Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('ALL')" title="Fit all transit corridors">All Corridors</button>
       </div>
       <div class="map-legend">
         <div><span class="sw" style="background:#B94A3B"></span>Pothole</div>
@@ -1263,7 +1434,7 @@ function pageDashboard() {
       </div>
       <div class="map-badge">
         <span class="dot pulse"></span>
-        <span>Leaflet GIS · ${total} incidents · ${onlineBuses} buses active</span>
+        <span id="mapBadgeInfo">Leaflet GIS · ${total} incidents · ${onlineBuses} buses active</span>
       </div>
     </div>
   </div>
@@ -1273,11 +1444,40 @@ function pageDashboard() {
       <h3>Recent Road Incidents</h3>
       <span class="link" onclick="state.route='incidents';render()">View all →</span>
     </div>
-    <div class="panel-body" style="padding-top:0;">
+    <div class="panel-body" id="dashboardRecentWrap" style="padding-top:0;">
       ${incidentsTable(state.incidents.slice(0, 6))}
     </div>
   </div>
   `;
+}
+
+function updateDashboardKpis() {
+  const total = state.incidents.length;
+  const verified = state.incidents.filter(i => (i.status === 'VERIFIED' || i.status === 'verified')).length;
+  const openTickets = state.tickets.filter(t => t.status !== 'RESOLVED').length;
+  const resolved = state.tickets.filter(t => t.status === 'RESOLVED').length;
+  const onlineBuses = state.buses.filter(b => (b.status === 'ONLINE' || b.status === 'online')).length;
+  const fleetTotal = state.buses.length;
+
+  const elTot = document.getElementById('kpiTotal');
+  if (elTot) elTot.textContent = total;
+  const elVer = document.getElementById('kpiVerified');
+  if (elVer) elVer.textContent = verified;
+  const elTkt = document.getElementById('kpiOpenTickets');
+  if (elTkt) elTkt.textContent = openTickets;
+  const elRes = document.getElementById('kpiResolvedSummary');
+  if (elRes) elRes.textContent = `${resolved} resolved`;
+  const elBus = document.getElementById('kpiOnlineBuses');
+  if (elBus) elBus.textContent = `${onlineBuses}/${fleetTotal}`;
+  const elBadge = document.getElementById('mapBadgeInfo');
+  if (elBadge) elBadge.textContent = `Leaflet GIS · ${total} incidents · ${onlineBuses} buses active`;
+}
+
+function updateDashboardRecentTable() {
+  const wrap = document.getElementById('dashboardRecentWrap');
+  if (wrap) {
+    wrap.innerHTML = incidentsTable(state.incidents.slice(0, 6));
+  }
 }
 
 function incidentsTable(list) {
@@ -1429,36 +1629,152 @@ function pageFusion() {
   </div>`;
 }
 
+let draggedTicketId = null;
+
 function pageTickets() {
   const cols = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
   const labels = { REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved' };
 
-  return `<div class="kanban">
+  return `
+  <div style="margin-bottom:12px;font-size:12px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div><strong>Drag and drop</strong> ticket cards or use the stage selector to update municipal ticket resolution progress in real time.</div>
+    <div style="font-size:11px;color:var(--ink-faint);">${state.tickets.length} total municipal tickets</div>
+  </div>
+  <div class="kanban" id="kanbanBoard">
     ${cols.map(c => {
       const items = state.tickets.filter(t => (t.status || 'REPORTED') === c);
-      return `<div>
+      return `
+      <div class="kcol-column">
         <div class="kcol-head">
           <h4>${labels[c]}</h4>
           <span class="n">${items.length}</span>
         </div>
-        <div class="kcol-body">
+        <div class="kcol-body" data-col="${c}"
+             ondragover="handleTicketDragOver(event)"
+             ondragenter="handleTicketDragOver(event)"
+             ondragleave="handleTicketDragLeave(event)"
+             ondrop="handleTicketDrop(event, '${c}')">
           ${items.length ? items.map(t => {
             const inc = state.incidents.find(i => i.incident_id === t.incident_id);
             return `
-            <div class="tcard" onclick="openTicketDrawer('${t.ticket_id}')">
-              <div class="tid">${t.ticket_id}</div>
+            <div class="tcard" draggable="true" id="tcard-${t.ticket_id}"
+                 ondragstart="handleTicketDragStart(event, '${t.ticket_id}')"
+                 ondragend="handleTicketDragEnd(event)"
+                 onclick="handleTicketCardClick(event, '${t.ticket_id}')">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="tid" style="display:flex;align-items:center;">
+                  <span class="tcard-drag-handle" title="Drag ticket card">⋮⋮</span>
+                  ${t.ticket_id}
+                </div>
+                ${statusBadge(t.status || c)}
+              </div>
               <div class="ttype">${(t.event_type || 'POTHOLE').replace('_', ' ')}</div>
-              <div class="tloc">Pune Municipal Corporation</div>
+              <div class="tloc">${t.locality || 'Pune Municipal Corporation'}</div>
               <div class="tfoot">
                 ${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}
                 <span class="sla">${t.estimated_repair_sla_hours || 48}h SLA</span>
               </div>
+              <div class="tcard-actions" onclick="event.stopPropagation();">
+                <span style="font-size:10px;color:var(--ink-faint);">Stage:</span>
+                <select class="tcard-move-select" onchange="moveTicketToStatus('${t.ticket_id}', this.value)">
+                  ${cols.map(opt => `<option value="${opt}" ${opt === (t.status || c) ? 'selected' : ''}>${labels[opt]}</option>`).join('')}
+                </select>
+              </div>
             </div>`;
-          }).join('') : `<div class="empty" style="padding:18px 6px;">Empty</div>`}
+          }).join('') : `<div class="empty" style="padding:24px 6px;">Drop tickets here</div>`}
         </div>
       </div>`;
     }).join('')}
   </div>`;
+}
+
+function handleTicketDragStart(event, ticketId) {
+  draggedTicketId = ticketId;
+  event.dataTransfer.setData('text/plain', ticketId);
+  event.dataTransfer.effectAllowed = 'move';
+  const card = document.getElementById(`tcard-${ticketId}`);
+  if (card) card.classList.add('is-dragging');
+}
+
+function handleTicketDragEnd(event) {
+  if (draggedTicketId) {
+    const card = document.getElementById(`tcard-${draggedTicketId}`);
+    if (card) card.classList.remove('is-dragging');
+  }
+  document.querySelectorAll('.kcol-body').forEach(col => col.classList.remove('drag-over'));
+  draggedTicketId = null;
+}
+
+function handleTicketDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const col = event.currentTarget;
+  if (!col.classList.contains('drag-over')) {
+    col.classList.add('drag-over');
+  }
+}
+
+function handleTicketDragLeave(event) {
+  const col = event.currentTarget;
+  if (!col.contains(event.relatedTarget)) {
+    col.classList.remove('drag-over');
+  }
+}
+
+async function handleTicketDrop(event, targetStatus) {
+  event.preventDefault();
+  const col = event.currentTarget;
+  col.classList.remove('drag-over');
+
+  const ticketId = event.dataTransfer.getData('text/plain') || draggedTicketId;
+  if (!ticketId) return;
+
+  await moveTicketToStatus(ticketId, targetStatus);
+}
+
+function handleTicketCardClick(event, ticketId) {
+  if (event.target.tagName === 'SELECT' || event.target.tagName === 'OPTION') return;
+  openTicketDrawer(ticketId);
+}
+
+async function moveTicketToStatus(ticketId, targetStatus) {
+  const ticket = (state.tickets || []).find(t => t.ticket_id === ticketId);
+  if (!ticket || ticket.status === targetStatus) return;
+
+  const prevStatus = ticket.status;
+  ticket.status = targetStatus;
+  ticket.updated_at = new Date().toISOString();
+
+  // Optimistic UI update on tickets page
+  if (state.route === 'tickets') {
+    document.getElementById('content').innerHTML = pageTickets();
+  }
+
+  try {
+    const resp = await fetch(`/api/v1/tickets/${ticketId}/status?new_status=${targetStatus}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!resp.ok) {
+      const fallback = await fetch(`/tickets/${ticketId}/status?new_status=${targetStatus}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!fallback.ok) throw new Error('Status transition rejected by server');
+      const data = await fallback.json();
+      if (data && data.ticket) Object.assign(ticket, data.ticket);
+    } else {
+      const data = await resp.json();
+      if (data && data.ticket) Object.assign(ticket, data.ticket);
+    }
+  } catch (err) {
+    console.error('Failed to update ticket status:', err);
+    ticket.status = prevStatus;
+    if (state.route === 'tickets') {
+      document.getElementById('content').innerHTML = pageTickets();
+    }
+    alert(`Could not update ticket status: ${err.message || 'Server error'}`);
+  }
 }
 
 function pageReports() {
@@ -1650,7 +1966,10 @@ function handleWsMessage(msg) {
         else state.incidents[idx] = msg.data;
         updateMapMarkers();
         renderNav();
-        if (state.route === 'dashboard' || state.route === 'incidents' || state.route === 'fusion') {
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+          updateDashboardRecentTable();
+        } else if (state.route === 'incidents' || state.route === 'fusion') {
           renderPage();
         }
       }
@@ -1662,7 +1981,10 @@ function handleWsMessage(msg) {
         if (idx !== -1) state.incidents[idx] = msg.data;
         else state.incidents.unshift(msg.data);
         updateMapMarkers();
-        if (state.route === 'dashboard' || state.route === 'incidents' || state.route === 'fusion') {
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+          updateDashboardRecentTable();
+        } else if (state.route === 'incidents' || state.route === 'fusion') {
           renderPage();
         }
         if (state.selectedIncidentId === msg.data.incident_id && document.getElementById('drawer') && document.getElementById('drawer').classList.contains('open')) {
@@ -1677,7 +1999,11 @@ function handleWsMessage(msg) {
         if (idx === -1) state.tickets.unshift(msg.data);
         else state.tickets[idx] = msg.data;
         renderNav();
-        if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
+        if (state.route === 'tickets') {
+          document.getElementById('content').innerHTML = pageTickets();
+        } else if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
       }
       break;
 
@@ -1685,14 +2011,20 @@ function handleWsMessage(msg) {
       if (msg.data) {
         const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
         if (idx !== -1) state.tickets[idx] = msg.data;
-        if (state.route === 'tickets' || state.route === 'dashboard') renderPage();
+        if (state.route === 'tickets') {
+          document.getElementById('content').innerHTML = pageTickets();
+        } else if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
       }
       break;
 
     case 'STATS_UPDATED':
       if (msg.data) {
         state.stats = msg.data;
-        if (state.route === 'dashboard') renderPage();
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
       }
       break;
   }
@@ -1713,7 +2045,14 @@ async function syncInitialData() {
     if (tktRes.tickets) state.tickets = tktRes.tickets;
     if (statsRes.total_incidents !== undefined) state.stats = statsRes;
 
-    render();
+    renderNav();
+    if (state.route === 'dashboard') {
+      updateDashboardKpis();
+      updateDashboardRecentTable();
+      updateMapMarkers();
+    } else {
+      renderPage();
+    }
   } catch (e) {
     console.warn('Initial sync error, awaiting WebSocket:', e);
   }
@@ -1724,7 +2063,7 @@ render();
 syncInitialData();
 connectWebSocket();
 
-// Periodic fallback polling every 5 seconds to ensure absolute real-time parity
+// Periodic fallback polling every 5 seconds to ensure absolute real-time parity without interrupting user map view
 setInterval(async () => {
   try {
     const [fleetRes, incRes, tktRes] = await Promise.all([
@@ -1735,13 +2074,19 @@ setInterval(async () => {
     if (fleetRes && fleetRes.fleet) {
       state.buses = fleetRes.fleet;
       updateMapMarkers();
+      if (state.route === 'dashboard') updateDashboardKpis();
     }
     if (incRes && incRes.incidents) {
       state.incidents = incRes.incidents;
       updateMapMarkers();
+      if (state.route === 'dashboard') {
+        updateDashboardKpis();
+        updateDashboardRecentTable();
+      }
     }
     if (tktRes && tktRes.tickets) {
       state.tickets = tktRes.tickets;
+      if (state.route === 'dashboard') updateDashboardKpis();
     }
   } catch (e) {}
 }, 5000);
