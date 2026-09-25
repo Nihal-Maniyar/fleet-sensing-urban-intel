@@ -151,9 +151,9 @@ Open your browser at **http://localhost:8001** to view the live dashboard.
 #### Launch Bus 2 Simultaneously:
 In a second terminal:
 ```bash
-python bus-simulator/main.py --bus-id BUS-002 --route ROUTE-PUNE-JM --port 8002
+python bus-simulator/main.py --bus-id BUS-002 --route ROUTE-PUNE-FC --port 8002
 ```
-Open **http://localhost:8002** to observe the second bus operating independently on JM Road.
+Open **http://localhost:8002** to observe the second bus operating on FC Road for fleet corroboration.
 
 ### 3. CLI Arguments
 
