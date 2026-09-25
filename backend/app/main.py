@@ -235,7 +235,7 @@ def init_default_buses() -> None:
     """Initialize registered buses for the Pune transit fleet."""
     default_fleet = [
         {"bus_id": "BUS-001", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "ONLINE", "battery": 87, "uptime": "6h 20m", "latitude": 18.5196, "longitude": 73.8436, "last_event": "EVT-000001"},
-        {"bus_id": "BUS-002", "route_id": "ROUTE-PUNE-JM", "route_name": "JM Road Corridor", "status": "ONLINE", "battery": 74, "uptime": "5h 10m", "latitude": 18.5255, "longitude": 73.8500, "last_event": "EVT-000002"},
+        {"bus_id": "BUS-002", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "ONLINE", "battery": 74, "uptime": "5h 10m", "latitude": 18.5183, "longitude": 73.8415, "last_event": "EVT-000002"},
         {"bus_id": "BUS-003", "route_id": "ROUTE-PUNE-KARVE", "route_name": "Karve Road Corridor", "status": "ONLINE", "battery": 91, "uptime": "4h 45m", "latitude": 18.5085, "longitude": 73.8268, "last_event": "EVT-000003"},
         {"bus_id": "BUS-004", "route_id": "ROUTE-PUNE-SHIVAJI", "route_name": "Swargate to PMC", "status": "ONLINE", "battery": 65, "uptime": "3h 20m", "latitude": 18.5218, "longitude": 73.8565, "last_event": "EVT-000004"},
         {"bus_id": "BUS-005", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "OFFLINE", "battery": 15, "uptime": "—", "latitude": 18.5158, "longitude": 73.8418, "last_event": "EVT-000010"},
@@ -661,27 +661,25 @@ async def receive_fleet_telemetry(payload: Dict[str, Any]):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing bus_id")
 
     init_default_buses()
+    is_fc_bus = bus_id in ("BUS-001", "BUS-002")
+    assigned_route = "ROUTE-PUNE-FC" if is_fc_bus else payload.get("route_id", "ROUTE-PUNE-FC")
+    assigned_name = "FC Road Corridor" if is_fc_bus else ("JM Road Corridor" if assigned_route == "ROUTE-PUNE-JM" else "FC Road Corridor")
+
     if bus_id in buses_by_id:
-        new_route_id = payload.get("route_id", buses_by_id[bus_id].get("route_id"))
-        route_name = buses_by_id[bus_id].get("route_name")
-        for corridor in PUNE_CORRIDORS:
-            if corridor["route_id"] == new_route_id:
-                route_name = corridor["name"]
-                break
         buses_by_id[bus_id].update({
             "latitude": payload.get("latitude", buses_by_id[bus_id].get("latitude")),
             "longitude": payload.get("longitude", buses_by_id[bus_id].get("longitude")),
             "status": payload.get("connectivity_state", "ONLINE"),
-            "route_id": new_route_id,
-            "route_name": route_name,
+            "route_id": assigned_route,
+            "route_name": assigned_name,
             "speed_kmh": payload.get("speed_kmh", 35.0),
             "heading_degrees": payload.get("heading_degrees", 0.0),
         })
     else:
         buses_by_id[bus_id] = {
             "bus_id": bus_id,
-            "route_id": payload.get("route_id", "ROUTE-PUNE-FC"),
-            "route_name": "FC Road Corridor",
+            "route_id": assigned_route,
+            "route_name": assigned_name,
             "status": payload.get("connectivity_state", "ONLINE"),
             "battery": 90,
             "uptime": "Live",

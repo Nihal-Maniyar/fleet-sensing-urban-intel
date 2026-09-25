@@ -865,13 +865,18 @@ const PUNE_CORRIDORS_GEO = {
 };
 
 // Multi-corridor Road snapping projection
-function snapToRoad(lat, lon) {
+function snapToRoad(lat, lon, routeId) {
   if (!lat || !lon) return [18.5228, 73.8415];
   let minDistanceSq = Infinity;
   let bestPoint = [lat, lon];
 
-  for (const key of Object.keys(PUNE_CORRIDORS_GEO)) {
-    const coords = PUNE_CORRIDORS_GEO[key].coords;
+  // If specific corridor requested, restrict snapping strictly to that corridor
+  const corridorsToCheck = (routeId && PUNE_CORRIDORS_GEO[routeId])
+    ? [PUNE_CORRIDORS_GEO[routeId]]
+    : Object.values(PUNE_CORRIDORS_GEO);
+
+  for (const corridor of corridorsToCheck) {
+    const coords = corridor.coords;
     for (let i = 0; i < coords.length - 1; i++) {
       const p1 = coords[i];
       const p2 = coords[i + 1];
@@ -895,8 +900,8 @@ function snapToRoad(lat, lon) {
     }
   }
 
-  // Snap if within reasonable corridor vicinity (~250m)
-  if (minDistanceSq < 0.00015) {
+  // Snap if within reasonable corridor vicinity (~500m) or if route corridor explicitly specified
+  if (routeId || minDistanceSq < 0.00025) {
     return [Number(bestPoint[0].toFixed(5)), Number(bestPoint[1].toFixed(5))];
   }
   return [Number(lat.toFixed(5)), Number(lon.toFixed(5))];
@@ -1109,7 +1114,11 @@ function updateMapMarkers() {
   state.buses.forEach(bus => {
     const rawLat = bus.latitude || 18.5204;
     const rawLon = bus.longitude || 73.8436;
-    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon);
+    // BUS-001 and BUS-002 run exclusively on FC Road corridor
+    const busRoute = (bus.bus_id === 'BUS-001' || bus.bus_id === 'BUS-002')
+      ? 'ROUTE-PUNE-FC'
+      : (bus.route_id || 'ROUTE-PUNE-FC');
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon, busRoute);
 
     const isOnline = bus.status === 'ONLINE' || bus.status === 'online';
     const heading = bus.heading_degrees || 0;
@@ -1149,7 +1158,8 @@ function updateMapMarkers() {
   state.incidents.forEach(inc => {
     const rawLat = inc.latitude || inc.road_aligned_latitude || 18.5204;
     const rawLon = inc.longitude || inc.road_aligned_longitude || 73.8436;
-    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon);
+    const incRoute = inc.route_id || (inc.locality && inc.locality.includes('FC Road') ? 'ROUTE-PUNE-FC' : null);
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon, incRoute);
 
     const type = inc.event_type || inc.type || 'POTHOLE';
     const isVerified = inc.status === 'VERIFIED' || inc.status === 'verified';
@@ -1311,7 +1321,8 @@ function openIncidentDrawer(id) {
 
   state.selectedIncidentId = id;
   const ticket = state.tickets.find(t => t.incident_id === id || t.ticket_id === inc.ticket_id);
-  const [snappedLat, snappedLon] = snapToRoad(inc.latitude, inc.longitude);
+  const incRoute = inc.route_id || (inc.locality && inc.locality.includes('FC Road') ? 'ROUTE-PUNE-FC' : null);
+  const [snappedLat, snappedLon] = snapToRoad(inc.latitude, inc.longitude, incRoute);
 
   if (leafletMap && incidentMarkers[id]) {
     leafletMap.panTo([snappedLat, snappedLon]);
@@ -1400,7 +1411,8 @@ function openTicketDrawer(ticketId) {
   const t = state.tickets.find(x => x.ticket_id === ticketId);
   if (!t) return;
   const inc = state.incidents.find(i => i.incident_id === t.incident_id);
-  const [lat, lon] = snapToRoad(t.latitude || (inc ? inc.latitude : 18.5204), t.longitude || (inc ? inc.longitude : 73.8436));
+  const incRoute = (inc && inc.route_id) || 'ROUTE-PUNE-FC';
+  const [lat, lon] = snapToRoad(t.latitude || (inc ? inc.latitude : 18.5204), t.longitude || (inc ? inc.longitude : 73.8436), incRoute);
 
   const head = `
     <div>
@@ -1457,7 +1469,7 @@ function openBusDrawer(busId) {
         ${isOnline ? 'Online' : 'Offline'}
       </span>
       <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;" class="mono">${b.bus_id}</h3>
-      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${(b.bus_id === 'BUS-001' || b.bus_id === 'BUS-002') ? 'FC Road Corridor (ROUTE-PUNE-FC)' : (b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)')}</div>
     </div>
     <button class="iconbtn x" onclick="closeDrawer()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -1733,7 +1745,7 @@ function pageBuses() {
         <div class="top">
           <div>
             <div class="id">${b.bus_id}</div>
-            <div class="route">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
+            <div class="route">${(b.bus_id === 'BUS-001' || b.bus_id === 'BUS-002') ? 'FC Road Corridor (ROUTE-PUNE-FC)' : (b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)')}</div>
           </div>
           <span class="status-pill ${isOnline ? 'online' : 'offline'}">
             <span class="dot" style="background:${isOnline ? 'var(--green)' : 'var(--ink-faint)'}"></span>
