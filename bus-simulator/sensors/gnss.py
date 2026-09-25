@@ -78,7 +78,7 @@ SHIVAJI_ROAD = PuneRouteCorridor(
     waypoints=[
         Waypoint(18.5018, 73.8580, "Swargate Bus Station", 1),
         Waypoint(18.5165, 73.8562, "Dagdusheth Ganpati", 2),
-        Waypoint(18.5218, 73.8540, "PMC Central HQ", 3),
+        Waypoint(18.5218, 73.8565, "PMC Central HQ", 3),
         Waypoint(18.5328, 73.8550, "Shivajinagar Station", 4),
     ],
 )

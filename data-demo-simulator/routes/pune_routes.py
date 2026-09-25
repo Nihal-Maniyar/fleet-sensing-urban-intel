@@ -50,7 +50,7 @@ SHIVAJI_ROAD_ROUTE = Route(
     waypoints=[
         Waypoint(latitude=18.5018, longitude=73.8580, name="Swargate Bus Station", order=1),
         Waypoint(latitude=18.5165, longitude=73.8562, name="Dagdusheth Ganpati / Budhwar Peth", order=2),
-        Waypoint(latitude=18.5218, longitude=73.8540, name="Pune Municipal Corporation (PMC)", order=3),
+        Waypoint(latitude=18.5218, longitude=73.8565, name="Pune Municipal Corporation (PMC)", order=3),
         Waypoint(latitude=18.5328, longitude=73.8550, name="Shivajinagar Railway Station", order=4),
     ],
 )
