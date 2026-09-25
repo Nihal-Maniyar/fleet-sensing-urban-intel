@@ -662,11 +662,18 @@ async def receive_fleet_telemetry(payload: Dict[str, Any]):
 
     init_default_buses()
     if bus_id in buses_by_id:
+        new_route_id = payload.get("route_id", buses_by_id[bus_id].get("route_id"))
+        route_name = buses_by_id[bus_id].get("route_name")
+        for corridor in PUNE_CORRIDORS:
+            if corridor["route_id"] == new_route_id:
+                route_name = corridor["name"]
+                break
         buses_by_id[bus_id].update({
             "latitude": payload.get("latitude", buses_by_id[bus_id].get("latitude")),
             "longitude": payload.get("longitude", buses_by_id[bus_id].get("longitude")),
             "status": payload.get("connectivity_state", "ONLINE"),
-            "route_id": payload.get("route_id", buses_by_id[bus_id].get("route_id")),
+            "route_id": new_route_id,
+            "route_name": route_name,
             "speed_kmh": payload.get("speed_kmh", 35.0),
             "heading_degrees": payload.get("heading_degrees", 0.0),
         })
