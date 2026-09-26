@@ -235,7 +235,7 @@ def init_default_buses() -> None:
     """Initialize registered buses for the Pune transit fleet."""
     default_fleet = [
         {"bus_id": "BUS-001", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "ONLINE", "battery": 87, "uptime": "6h 20m", "latitude": 18.5196, "longitude": 73.8436, "last_event": "EVT-000001"},
-        {"bus_id": "BUS-002", "route_id": "ROUTE-PUNE-JM", "route_name": "JM Road Corridor", "status": "ONLINE", "battery": 74, "uptime": "5h 10m", "latitude": 18.5255, "longitude": 73.8500, "last_event": "EVT-000002"},
+        {"bus_id": "BUS-002", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "ONLINE", "battery": 74, "uptime": "5h 10m", "latitude": 18.5236, "longitude": 73.8412, "last_event": "EVT-000002"},
         {"bus_id": "BUS-003", "route_id": "ROUTE-PUNE-KARVE", "route_name": "Karve Road Corridor", "status": "ONLINE", "battery": 91, "uptime": "4h 45m", "latitude": 18.5085, "longitude": 73.8268, "last_event": "EVT-000003"},
         {"bus_id": "BUS-004", "route_id": "ROUTE-PUNE-SHIVAJI", "route_name": "Swargate to PMC", "status": "ONLINE", "battery": 65, "uptime": "3h 20m", "latitude": 18.5218, "longitude": 73.8565, "last_event": "EVT-000004"},
         {"bus_id": "BUS-005", "route_id": "ROUTE-PUNE-FC", "route_name": "FC Road Corridor", "status": "OFFLINE", "battery": 15, "uptime": "—", "latitude": 18.5158, "longitude": 73.8418, "last_event": "EVT-000010"},

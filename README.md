@@ -77,8 +77,8 @@ Edge AI computer vision sensing pipeline (YOLO + ByteTrack + 6-DOF IMU + SQLite/
 # Launch Bus 1 on FC Road (Web UI on port 8001):
 python3 bus-simulator/main.py --bus-id BUS-001 --route ROUTE-PUNE-FC --port 8001
 
-# Launch Bus 2 simultaneously on JM Road (Web UI on port 8002):
-python3 bus-simulator/main.py --bus-id BUS-002 --route ROUTE-PUNE-JM --port 8002
+# Launch Bus 2 simultaneously on FC Road for fleet corroboration (Web UI on port 8002):
+python3 bus-simulator/main.py --bus-id BUS-002 --route ROUTE-PUNE-FC --port 8002
 ```
 - Test bus simulator: `python3 -m unittest discover -s bus-simulator/tests -q`
 
