@@ -105,6 +105,12 @@ runtime/
 *.engine
 *.safetensors
 
+# Reference assets and media
+models/
+data/
+*.mp4
+*.avi
+
 # Training outputs
 runs/
 wandb/
@@ -134,3 +140,6 @@ coverage.xml
 # =========================================================
 
 docker-data/
+
+# Local tooling wrappers
+powershell.bat

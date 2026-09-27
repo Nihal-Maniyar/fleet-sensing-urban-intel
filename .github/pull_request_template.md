@@ -6,6 +6,11 @@
 
 Closes #
 
+## Target Branch
+
+- [ ] `develop`
+- [ ] `main` (release/demo-ready changes only)
+
 ## Changes
 
 -
@@ -14,8 +19,8 @@ Closes #
 
 ## Testing
 
-- [ ] Tested locally
-- [ ] Existing tests pass
+- [ ] Tested locally: `python -m unittest discover -s tests -q` (from `data-demo-simulator`)
+- [ ] CI checks pass
 - [ ] Added/updated tests where required
 
 ## AI Assisted?

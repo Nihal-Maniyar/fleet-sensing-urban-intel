@@ -106,6 +106,30 @@ The official ticket statuses are `REPORTED`, `ACKNOWLEDGED`, `IN_PROGRESS`, and 
 
 Severity is derived from event type, confidence, persistence, location/context, and corroborating observations. The prototype may use `LOW`, `MEDIUM`, and `HIGH`; the scoring formula is a future implementation contract and must not be inferred from `confidence` alone.
 
-## MQTT convention
+Publish v1 events to `beyonders/events/v1`. Retain no secrets in MQTT payloads. An offline edge event is stored in SQLite/WAL and later published with the same `event_id`; ingestion must be idempotent.
 
-Publish v1 events to `beyonders/events/v1`. Retain no secrets in MQTT payloads. An offline edge event is stored in SQLite/WAL and later published with the same `event_id`; ingestion must be idempotent. API endpoints are intentionally not specified yet; document them here before implementation.
+## Public HTTP API Endpoints
+
+The backend exposes these v1 endpoints (available at root and `/api/v1` prefix):
+
+| Method | Path | Request Body | Success Code | Description |
+|---|---|---|---|---|
+| `GET` | `/health` / `/` | None | `200 OK` | Service health and contract version |
+| `POST` | `/events` | `Event` JSON | `201 Created` | Idempotent event ingestion; persists event and creates normalized `Observation` |
+| `GET` | `/events` | None | `200 OK` | List all ingested events |
+| `GET` | `/events/{event_id}` | None | `200 OK` | Retrieve single event (`404` if not found) |
+| `GET` | `/observations` | None | `200 OK` | List all normalized observations |
+| `GET` | `/observations/{observation_id}` | None | `200 OK` | Retrieve single observation (`404` if not found) |
+| `POST` | `/incidents` | `Incident` JSON | `201 Created` | Register or update verified/candidate incident |
+| `GET` | `/incidents` | None | `200 OK` | List all incidents |
+| `GET` | `/incidents/{incident_id}` | None | `200 OK` | Retrieve incident by ID (`404` if not found) |
+| `POST` | `/tickets` | `Ticket` JSON | `201 Created` | Create civic ticket (`POT-YYYY-XXXXXX`) |
+| `GET` | `/tickets` | None | `200 OK` | List all tickets |
+| `GET` | `/tickets/{ticket_id}` | None | `200 OK` | Retrieve ticket by ID (`404` if not found) |
+| `PATCH` | `/tickets/{ticket_id}/status` | Query `new_status` | `200 OK` | Transition ticket lifecycle status (`400` if invalid) |
+| `GET` | `/tickets/{ticket_id}/map` | None | `200 OK` | Get Google Maps navigation link and coordinates |
+
+### Idempotency & Conflict Rules
+- Re-submitting an existing `event_id`, `incident_id`, or `ticket_id` with an identical payload returns `201 Created` with `"duplicate": true`.
+- Submitting an existing ID with a modified or conflicting payload returns `409 Conflict`.
+- Malformed payloads or invalid contract values return `422 Unprocessable Entity`.

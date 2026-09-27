@@ -1,0 +1,2274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fleet Sensing Urban Intel — Pune Mobility GIS Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+<!-- Leaflet GIS Engine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+/* ============ TOKENS ============ */
+:root {
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --ink: #101826;
+  --ink-soft: #5B6472;
+  --ink-faint: #8A93A3;
+  --surface: #FFFFFF;
+  --surface-sunken: #F3F5F9;
+  --surface-raised: #FFFFFF;
+  --border: #E1E5EC;
+  --border-soft: #EDF0F4;
+
+  --navy: #0E1B2C;
+  --navy-soft: #16283F;
+  --navy-line: #24384F;
+
+  --teal: #1C6E8C;
+  --teal-ink: #0F4A61;
+  --teal-soft: #E3F0F4;
+
+  --amber: #CC7A2E;
+  --amber-soft: #FBEEDD;
+
+  --green: #2E7D53;
+  --green-soft: #E3F3E9;
+
+  --red: #B94A3B;
+  --red-soft: #F8E5E2;
+
+  --shadow-sm: 0 1px 3px rgba(16, 24, 38, 0.06);
+  --shadow-md: 0 6px 20px rgba(16, 24, 38, 0.08);
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #EDEFF3; --ink-soft: #AEB6C4; --ink-faint: #7A8497;
+    --surface: #141B27; --surface-sunken: #0F1622; --surface-raised: #1A2331;
+    --border: #263042; --border-soft: #1E2735;
+    --teal-soft: #173038; --amber-soft: #2E2416; --green-soft: #16281E; --red-soft: #2C1B18;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #EDEFF3; --ink-soft: #AEB6C4; --ink-faint: #7A8497;
+  --surface: #141B27; --surface-sunken: #0F1622; --surface-raised: #1A2331;
+  --border: #263042; --border-soft: #1E2735;
+  --teal-soft: #173038; --amber-soft: #2E2416; --green-soft: #16281E; --red-soft: #2C1B18;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+button { font-family: inherit; cursor: pointer; border: none; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+/* ============ APP SHELL ============ */
+.app { display: flex; min-height: 100%; }
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 240px; min-width: 240px;
+  background: var(--navy);
+  color: #DDE4EE;
+  display: flex; flex-direction: column;
+  padding: 18px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  position: sticky; top: 0; align-self: flex-start; height: 100vh;
+  z-index: 40;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s ease;
+}
+.sidebar.collapsed {
+  width: 68px; min-width: 68px;
+  padding: 18px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.brand { display: flex; align-items: center; gap: 11px; padding: 6px 10px 20px; border-bottom: 1px solid var(--navy-line); }
+.sidebar.collapsed .brand { justify-content: center; padding: 6px 0 16px; }
+.brand-mark {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(155deg, var(--teal), #123246);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #E3F0F4;
+  cursor: pointer;
+}
+.brand-mark svg { width: 20px; height: 20px; }
+.brand-text .t1 { font-family: var(--font-display); font-weight: 700; font-size: 14.5px; line-height: 1.15; color: #F3F6FA; }
+.brand-text .t2 { font-size: 10.5px; color: #8FA0B8; letter-spacing: .02em; margin-top: 2px; }
+.sidebar.collapsed .brand-text { display: none; }
+.sidebar-collapse-btn {
+  margin-left: auto; background: transparent; color: #8FA0B8; border-radius: 6px;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease;
+}
+.sidebar-collapse-btn:hover { background: var(--navy-soft); color: #fff; border-color: var(--navy-line); }
+.sidebar.collapsed .sidebar-collapse-btn { display: none; }
+
+.nav { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: 8px;
+  color: #B7C2D2; background: transparent; border: none; width: 100%; text-align: left;
+  font-size: 13.5px; font-weight: 500;
+  transition: background .15s ease, color .15s ease;
+  position: relative;
+}
+.sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; gap: 0; }
+.sidebar.collapsed .nav-item span { display: none; }
+.sidebar.collapsed .nav-item .cnt { display: none; }
+.nav-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: .9; }
+.nav-item:hover { background: var(--navy-soft); color: #F0F3F8; }
+.nav-item.active { background: var(--teal); color: #fff; }
+.nav-item .cnt {
+  margin-left: auto; font-size: 10.5px; font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.14); padding: 1px 7px; border-radius: 999px; color: #EAF0F6;
+}
+.nav-item.active .cnt { background: rgba(255, 255, 255, 0.28); }
+
+.sidebar-foot {
+  margin-top: 10px; padding: 12px 12px 4px; border-top: 1px solid var(--navy-line);
+  font-size: 11px; color: #7488A0; line-height: 1.5;
+}
+.sidebar-foot b { color: #B7C2D2; }
+.sidebar.collapsed .sidebar-foot { display: none; }
+
+/* ---- Main column ---- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---- Topbar ---- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 12px 24px; display: flex; align-items: center; gap: 16px;
+}
+.topbar h1 { font-family: var(--font-display); font-size: 17.5px; font-weight: 700; white-space: nowrap; }
+.topbar .sub { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; white-space: nowrap; }
+.search {
+  flex: 1; max-width: 360px; display: flex; align-items: center; gap: 8px;
+  background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 14px; color: var(--ink-faint); font-size: 12.5px;
+}
+.search input { border: none; background: transparent; color: var(--ink); width: 100%; outline: none; font-size: 12px; }
+.search svg { width: 14px; height: 14px; flex-shrink: 0; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.datasource {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px 6px 10px;
+  font-size: 11.5px; font-weight: 600; background: var(--surface-sunken); position: relative;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+.dot.pulse { box-shadow: 0 0 0 0 rgba(46, 125, 83, .5); animation: pulse 2s infinite; }
+.dot.offline { background: var(--amber); }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(46, 125, 83, .45); }
+  70% { box-shadow: 0 0 0 7px rgba(46, 125, 83, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 125, 83, 0); }
+}
+.clock { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; }
+.iconbtn {
+  width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border);
+  background: var(--surface); display: flex; align-items: center; justify-content: center; position: relative;
+}
+.iconbtn svg { width: 16px; height: 16px; color: var(--ink-soft); }
+
+/* ---- Content ---- */
+.content { padding: 20px 24px 48px; max-width: 1440px; width: 100%; margin: 0 auto; }
+.page-head { margin-bottom: 16px; }
+.page-head h2 { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.page-head p { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; max-width: 680px; }
+
+/* ============ COMPONENTS ============ */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; box-shadow: var(--shadow-sm);
+}
+.kpi .label { font-size: 11px; color: var(--ink-faint); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.kpi .value { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-top: 6px; }
+.kpi .delta { font-size: 11px; margin-top: 5px; font-weight: 600; }
+.kpi .delta.up { color: var(--green); } .kpi .delta.down { color: var(--amber); }
+
+.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px; border-bottom: 1px solid var(--border-soft);
+}
+.panel-head h3 { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+.panel-head .link { font-size: 11.5px; color: var(--teal); font-weight: 600; cursor: pointer; }
+.panel-body { padding: 16px 18px; }
+
+/* ============ LEAFLET GIS MAP ============ */
+.map-panel { margin-bottom: 16px; }
+.map-wrap {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+@media (min-height: 800px) {
+  .map-wrap {
+    height: calc(100vh - 340px);
+    min-height: 480px;
+    max-height: 680px;
+  }
+}
+#leafletMap {
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background: #E8ECEF;
+}
+:root[data-theme="dark"] #leafletMap {
+  background: #111822;
+}
+
+/* Map Overlays */
+.map-legend {
+  position: absolute; top: 12px; right: 12px; z-index: 20;
+  background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+  font-size: 11px; box-shadow: var(--shadow-sm); color: var(--ink);
+}
+:root[data-theme="dark"] .map-legend {
+  background: rgba(20, 27, 39, 0.92);
+}
+.map-legend div { display: flex; align-items: center; gap: 7px; padding: 2px 0; }
+.map-legend span.sw { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.map-badge {
+  position: absolute; bottom: 12px; left: 12px; z-index: 20;
+  background: rgba(14, 27, 44, 0.88); backdrop-filter: blur(6px); color: #fff;
+  font-size: 11px; padding: 6px 12px; border-radius: 999px; font-family: var(--font-mono);
+  display: flex; align-items: center; gap: 8px;
+}
+.map-controls-bar {
+  position: absolute; top: 12px; left: 60px; z-index: 20;
+  display: flex; gap: 6px;
+}
+.map-ctl-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--ink);
+  box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 5px;
+}
+.map-ctl-btn:hover { background: var(--surface-sunken); }
+
+/* Custom Leaflet Map Markers */
+.leaflet-bus-icon-wrap { background: transparent; border: none; }
+.leaflet-bus-marker {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+}
+.bus-core {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #1C6E8C; color: #fff; border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s ease;
+}
+.leaflet-bus-marker.offline .bus-core { background: #64748b; }
+.bus-pulse {
+  position: absolute; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(28, 110, 140, 0.35); top: -3px; left: -3px;
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.bus-pill-tag {
+  background: var(--navy); color: #fff; font-family: var(--font-mono);
+  font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+  margin-top: 2px; white-space: nowrap; border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.leaflet-incident-icon-wrap { background: transparent; border: none; }
+.leaflet-incident-marker {
+  position: relative; width: 26px; height: 26px; cursor: pointer;
+}
+.pin-ring {
+  position: absolute; inset: -4px; border-radius: 50%;
+  background: var(--pin-color, #B94A3B); opacity: 0.2;
+  animation: pulse-ring 2.4s infinite;
+}
+.pin-head {
+  width: 24px; height: 24px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin-color, #B94A3B); border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.pin-type-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #fff;
+  transform: rotate(45deg);
+}
+.pin-verified-badge {
+  position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
+  background: #10b981; color: #fff; font-size: 8px; font-weight: 900;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 1px solid #fff;
+}
+
+/* ============ TABLES & BADGES ============ */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th {
+  text-align: left; font-size: 10.5px; color: var(--ink-faint); font-weight: 700;
+  padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td { padding: 11px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+tbody tr { transition: background .12s ease; cursor: pointer; }
+tbody tr:hover { background: var(--surface-sunken); }
+.mono { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-soft); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.badge.sev-high { background: var(--red-soft); color: var(--red); }
+.badge.sev-medium { background: var(--amber-soft); color: var(--amber); }
+.badge.sev-low { background: var(--green-soft); color: var(--green); }
+.badge.st-reported { background: var(--amber-soft); color: var(--amber); }
+.badge.st-acknowledged { background: var(--teal-soft); color: var(--teal-ink); }
+.badge.st-inprogress { background: #E7E1F7; color: #5B3FA8; }
+.badge.st-resolved { background: var(--green-soft); color: var(--green); }
+.badge.type { background: var(--surface-sunken); color: var(--ink-soft); border: 1px solid var(--border); }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+select, .btn, input[type=text] {
+  font-family: inherit; font-size: 12px; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; background: var(--surface); color: var(--ink);
+}
+.btn { font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+.btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+.btn.primary:hover { background: var(--teal-ink); }
+.btn.ghost { background: transparent; }
+.btn.sm { padding: 6px 11px; font-size: 11.5px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ============ DRAWER ============ */
+.overlay {
+  position: fixed; inset: 0; background: rgba(10, 16, 26, 0.45); z-index: 60;
+  opacity: 0; pointer-events: none; transition: opacity .18s ease;
+}
+.overlay.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 94vw); z-index: 61;
+  background: var(--surface); box-shadow: -12px 0 30px rgba(10, 16, 26, 0.2);
+  transform: translateX(100%); transition: transform .22s ease;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px; }
+.drawer-head .x { margin-left: auto; }
+.drawer-body { padding: 18px 20px; overflow-y: auto; flex: 1; }
+.drawer-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 12.5px; }
+.kv dt { color: var(--ink-faint); font-weight: 600; }
+.kv dd { font-weight: 600; }
+
+/* Evidence Container & HUD */
+.evidence-container {
+  position: relative; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--surface-sunken);
+  aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center;
+}
+.evidence-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.evidence-fallback { width: 100%; height: 100%; display: block; }
+.evidence-hud-overlay {
+  position: absolute; bottom: 8px; left: 8px; right: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(14, 27, 44, 0.82); backdrop-filter: blur(4px);
+  padding: 4px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; color: #fff;
+}
+.evidence-hud-conf { color: #10b981; font-weight: 700; }
+
+.stepper { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
+.step { display: flex; gap: 10px; position: relative; padding-bottom: 18px; }
+.step:last-child { padding-bottom: 0; }
+.step .node { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--border); background: var(--surface); flex-shrink: 0; margin-top: 1px; z-index: 1; }
+.step.done .node { background: var(--teal); border-color: var(--teal); }
+.step.current .node { background: #fff; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+.step:not(:last-child)::before {
+  content: ''; position: absolute; left: 7.5px; top: 16px; bottom: 0; width: 1.5px; background: var(--border);
+}
+.step.done:not(:last-child)::before { background: var(--teal); }
+.step .stitle { font-size: 12.5px; font-weight: 700; }
+.step .stime { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
+
+.section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--ink-faint); margin: 16px 0 8px; letter-spacing: .03em; }
+.section-title:first-child { margin-top: 0; }
+
+/* Buses Grid */
+.bus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.bus-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+.bus-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
+.bus-card .id { font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+.bus-card .route { font-size: 11.5px; color: var(--ink-soft); margin-top: 3px; }
+.status-pill { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; display: flex; align-items: center; gap: 5px; }
+.status-pill.online { background: var(--green-soft); color: var(--green); }
+.status-pill.offline { background: var(--surface-sunken); color: var(--ink-faint); border: 1px solid var(--border); }
+.bus-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; font-size: 11.5px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.bus-meta div span { display: block; color: var(--ink-faint); font-size: 10px; margin-bottom: 2px; }
+
+/* Kanban Board */
+.kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.kcol-column {
+  background: var(--surface-sunken); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column;
+}
+.kcol-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 10px; }
+.kcol-head h4 { font-size: 12px; font-weight: 700; }
+.kcol-head .n {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint);
+  background: var(--surface); padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border-soft);
+}
+.kcol-body {
+  display: flex; flex-direction: column; gap: 8px; min-height: 220px;
+  border-radius: 8px; padding: 4px; transition: background-color 0.15s ease, outline 0.15s ease;
+}
+.kcol-body.drag-over {
+  background: rgba(28, 110, 140, 0.14);
+  outline: 2px dashed var(--teal);
+  outline-offset: -2px;
+}
+.tcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+  padding: 12px; box-shadow: var(--shadow-sm); cursor: grab;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+  user-select: none;
+}
+.tcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--teal); }
+.tcard:active { cursor: grabbing; }
+.tcard.is-dragging { opacity: 0.35; transform: scale(0.97); }
+.tcard-drag-handle {
+  display: inline-flex; align-items: center; margin-right: 6px;
+  color: var(--ink-faint); font-size: 12px; cursor: grab; letter-spacing: -1px;
+}
+.tcard .tid { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--teal-ink); }
+.tcard .ttype { font-size: 12.5px; font-weight: 600; margin-top: 4px; }
+.tcard .tloc { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.tcard .tfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+.tcard-actions {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 6px;
+  border-top: 1px dashed var(--border-soft); font-size: 10.5px;
+}
+.tcard-move-select {
+  font-size: 10.5px; padding: 2px 6px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--surface-sunken); color: var(--ink);
+  cursor: pointer; outline: none; margin-left: auto;
+}
+.sla { font-size: 10px; font-family: var(--font-mono); color: var(--ink-faint); }
+
+/* Fusion queue */
+.fusion-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface); margin-bottom: 10px; }
+.fusion-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.obs-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px dashed var(--border-soft); }
+.obs-row:first-of-type { border-top: none; }
+.busdot { width: 26px; height: 26px; border-radius: 50%; background: var(--teal-soft); color: var(--teal-ink); font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* Reports */
+.grid-2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; align-items: start; }
+.bars { display: flex; align-items: flex-end; gap: 12px; height: 170px; padding-top: 10px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bar { width: 100%; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, var(--teal), var(--teal-ink)); position: relative; min-height: 4px; }
+.bar-col .lab { font-size: 10px; color: var(--ink-faint); text-align: center; }
+.bar-col .val { font-size: 10.5px; font-weight: 700; font-family: var(--font-mono); }
+
+.empty { text-align: center; padding: 36px 10px; color: var(--ink-faint); font-size: 12.5px; line-height: 1.5; }
+
+@media (max-width: 960px) {
+  .sidebar { display: none; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .grid-2 { grid-template-columns: 1fr; }
+  .kanban { grid-template-columns: 1fr 1fr; }
+  .search { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark" id="brandToggleBtn" title="Toggle navigation panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="t1">Fleet Sensing<br>Urban Intel</div>
+        <div class="t2">Pune Municipal Pilot</div>
+      </div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+    </div>
+    <div class="nav" id="nav"></div>
+    <div class="sidebar-foot">
+      <b>Fleet Sensing Urban Intel</b><br>
+      Pune Corridor · YOLO + ByteTrack Edge AI
+    </div>
+  </nav>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="iconbtn sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle Navigation Sidebar" aria-label="Toggle navigation sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <div class="sub" id="pageSub">Fleet-wide civic sensing overview</div>
+        </div>
+      </div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="globalSearch" placeholder="Search incidents, tickets, buses…" oninput="handleGlobalSearch(this.value)">
+      </div>
+      <div class="topbar-right">
+        <div class="datasource" id="dsIndicator">
+          <span class="dot pulse"></span> Connecting...
+        </div>
+        <div class="clock" id="clock">—</div>
+        <button class="iconbtn" id="themeBtn" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head" id="drawerHead"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
+
+<script>
+/* =========================================================================
+   FLEET SENSING URBAN INTEL — REAL-TIME GIS DASHBOARD
+   Member 5: Real-time GIS & Public Transit Intelligence
+   ========================================================================= */
+
+/* ---------- Storage & Preferences ---------- */
+function getPref(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e) { return d; } }
+function setPref(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+
+/* ---------- Sidebar Toggle ---------- */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  const isCollapsed = sidebar.classList.toggle('collapsed');
+  setPref('fsui_sidebar_collapsed', isCollapsed ? '1' : '0');
+  if (leafletMap) {
+    setTimeout(() => leafletMap.invalidateSize(), 260);
+  }
+}
+
+(function initSidebar() {
+  const saved = getPref('fsui_sidebar_collapsed', '0');
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && saved === '1') {
+    sidebar.classList.add('collapsed');
+  }
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const collapseBtn = document.getElementById('sidebarCollapseBtn');
+  const brandBtn = document.getElementById('brandToggleBtn');
+  if (toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
+  if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
+  if (brandBtn) brandBtn.addEventListener('click', toggleSidebar);
+})();
+
+/* ---------- Theme Switcher ---------- */
+(function initTheme() {
+  const saved = getPref('fsui_theme', null);
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = (cur === 'dark' || (!cur && prefersDark)) ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  setPref('fsui_theme', next);
+  if (leafletMap) updateMapTileTheme(next);
+});
+
+/* ---------- Clock ---------- */
+function tickClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  }) + ' IST';
+}
+tickClock(); setInterval(tickClock, 30000);
+
+/* =========================================================================
+   AUTHENTIC PUNE ROAD CORRIDORS & ROAD-SNAPPING
+   ========================================================================= */
+const FC_ROAD_KML_COORDS = [
+  [18.51595, 73.84207], [18.51601, 73.84204], [18.51606, 73.84203], [18.51607, 73.84202],
+  [18.51610, 73.84199], [18.51619, 73.84197], [18.51631, 73.84193], [18.51643, 73.84189],
+  [18.51669, 73.84181], [18.51696, 73.84174], [18.51724, 73.84168], [18.51750, 73.84163],
+  [18.51757, 73.84162], [18.51830, 73.84149], [18.51836, 73.84148], [18.51898, 73.84139],
+  [18.51907, 73.84137], [18.51935, 73.84131], [18.51957, 73.84128], [18.51993, 73.84124],
+  [18.52042, 73.84117], [18.52054, 73.84116], [18.52073, 73.84114], [18.52105, 73.84108],
+  [18.52110, 73.84107], [18.52123, 73.84105], [18.52132, 73.84104], [18.52134, 73.84104],
+  [18.52198, 73.84097], [18.52203, 73.84097], [18.52263, 73.84095], [18.52363, 73.84116],
+  [18.52457, 73.84140], [18.52465, 73.84141], [18.52481, 73.84146], [18.52541, 73.84161],
+  [18.52550, 73.84163], [18.52573, 73.84170], [18.52591, 73.84175], [18.52595, 73.84176],
+  [18.52636, 73.84190], [18.52639, 73.84191], [18.52658, 73.84200], [18.52691, 73.84221],
+  [18.52717, 73.84235], [18.52735, 73.84243], [18.52740, 73.84246], [18.52743, 73.84248],
+  [18.52756, 73.84254], [18.52801, 73.84278], [18.52814, 73.84283], [18.52821, 73.84288],
+  [18.52838, 73.84297], [18.52874, 73.84316], [18.52939, 73.84351], [18.52972, 73.84368],
+  [18.52988, 73.84376], [18.52994, 73.84380], [18.53004, 73.84385], [18.53032, 73.84401],
+  [18.53124, 73.84451]
+];
+
+const JM_ROAD_KML_COORDS = [
+  [18.52724, 73.85109], [18.52715, 73.85102], [18.52679, 73.85076], [18.52672, 73.85071],
+  [18.52659, 73.85063], [18.52643, 73.85052], [18.52614, 73.85035], [18.52550, 73.84992],
+  [18.52519, 73.84971], [18.52501, 73.84960], [18.52493, 73.84954], [18.52482, 73.84947],
+  [18.52408, 73.84898], [18.52385, 73.84883], [18.52345, 73.84857], [18.52339, 73.84854],
+  [18.52283, 73.84816], [18.52276, 73.84809], [18.52238, 73.84778], [18.52229, 73.84771],
+  [18.52186, 73.84733], [18.52121, 73.84678], [18.52054, 73.84626], [18.52043, 73.84616],
+  [18.52018, 73.84596], [18.52014, 73.84592], [18.51974, 73.84559], [18.51898, 73.84494],
+  [18.51867, 73.84467], [18.51853, 73.84454], [18.51838, 73.84442], [18.51786, 73.84397],
+  [18.51776, 73.84389], [18.51687, 73.84309], [18.51679, 73.84303], [18.51642, 73.84276],
+  [18.51631, 73.84269], [18.51622, 73.84262], [18.51613, 73.84256], [18.51603, 73.84251]
+];
+
+const KARVE_ROAD_KML_COORDS = [
+  [18.48031, 73.80547], [18.48034, 73.80555], [18.48038, 73.80563], [18.48041, 73.80568],
+  [18.48043, 73.80573], [18.48047, 73.80579], [18.48052, 73.80585], [18.48066, 73.80599],
+  [18.48074, 73.80607], [18.48096, 73.80629], [18.48112, 73.80648], [18.48121, 73.80657],
+  [18.48143, 73.80686], [18.48160, 73.80707], [18.48167, 73.80718], [18.48179, 73.80737],
+  [18.48215, 73.80787], [18.48281, 73.80866], [18.48303, 73.80896], [18.48311, 73.80913],
+  [18.48331, 73.80939], [18.48346, 73.80957], [18.48360, 73.80972], [18.48370, 73.80981],
+  [18.48381, 73.80991], [18.48384, 73.80993], [18.48424, 73.81021], [18.48448, 73.81033],
+  [18.48461, 73.81042], [18.48483, 73.81059], [18.48506, 73.81081], [18.48522, 73.81095],
+  [18.48543, 73.81109], [18.48594, 73.81154], [18.48630, 73.81185], [18.48633, 73.81188],
+  [18.48638, 73.81193], [18.48674, 73.81224], [18.48680, 73.81229], [18.48685, 73.81233],
+  [18.48698, 73.81244], [18.48707, 73.81252], [18.48711, 73.81256], [18.48753, 73.81292],
+  [18.48776, 73.81311], [18.48783, 73.81317], [18.48790, 73.81323], [18.48823, 73.81352],
+  [18.48833, 73.81362], [18.48844, 73.81372], [18.48848, 73.81376], [18.48851, 73.81379],
+  [18.48859, 73.81387], [18.48867, 73.81396], [18.48876, 73.81404], [18.48882, 73.81411],
+  [18.48886, 73.81415], [18.48891, 73.81419], [18.48900, 73.81427], [18.48920, 73.81446],
+  [18.48942, 73.81464], [18.48951, 73.81470], [18.48966, 73.81479], [18.48972, 73.81483],
+  [18.48978, 73.81487], [18.48981, 73.81488], [18.48985, 73.81491], [18.48992, 73.81494],
+  [18.49005, 73.81500], [18.49014, 73.81503], [18.49021, 73.81505], [18.49037, 73.81508],
+  [18.49054, 73.81509], [18.49071, 73.81511], [18.49099, 73.81513], [18.49104, 73.81514],
+  [18.49108, 73.81514], [18.49113, 73.81515], [18.49123, 73.81516], [18.49183, 73.81520],
+  [18.49204, 73.81521], [18.49230, 73.81521], [18.49254, 73.81521], [18.49260, 73.81521],
+  [18.49275, 73.81520], [18.49287, 73.81517], [18.49301, 73.81513], [18.49314, 73.81506],
+  [18.49321, 73.81499], [18.49326, 73.81490], [18.49334, 73.81474], [18.49348, 73.81448],
+  [18.49371, 73.81404], [18.49383, 73.81381], [18.49389, 73.81372], [18.49396, 73.81364],
+  [18.49397, 73.81364], [18.49402, 73.81358], [18.49410, 73.81351], [18.49423, 73.81339],
+  [18.49427, 73.81335], [18.49439, 73.81327], [18.49446, 73.81325], [18.49454, 73.81323],
+  [18.49463, 73.81322], [18.49473, 73.81322], [18.49475, 73.81322], [18.49491, 73.81325],
+  [18.49492, 73.81325], [18.49527, 73.81330], [18.49574, 73.81338], [18.49597, 73.81343],
+  [18.49598, 73.81343], [18.49599, 73.81343], [18.49615, 73.81347], [18.49666, 73.81357],
+  [18.49713, 73.81366], [18.49734, 73.81370], [18.49759, 73.81373], [18.49771, 73.81374],
+  [18.49780, 73.81375], [18.49787, 73.81375], [18.49794, 73.81374], [18.49799, 73.81373],
+  [18.49828, 73.81367], [18.49853, 73.81365], [18.49873, 73.81366], [18.49890, 73.81366],
+  [18.49900, 73.81366], [18.49928, 73.81365], [18.49945, 73.81365], [18.49963, 73.81366],
+  [18.49974, 73.81367], [18.49990, 73.81372], [18.50009, 73.81380], [18.50017, 73.81383],
+  [18.50061, 73.81399], [18.50090, 73.81412], [18.50106, 73.81420], [18.50118, 73.81427],
+  [18.50129, 73.81436], [18.50137, 73.81442], [18.50146, 73.81450], [18.50153, 73.81455],
+  [18.50162, 73.81466], [18.50167, 73.81474], [18.50180, 73.81499], [18.50187, 73.81512],
+  [18.50189, 73.81515], [18.50191, 73.81519], [18.50194, 73.81523], [18.50196, 73.81525],
+  [18.50204, 73.81532], [18.50216, 73.81535], [18.50216, 73.81550], [18.50217, 73.81567],
+  [18.50221, 73.81595], [18.50230, 73.81652], [18.50236, 73.81681], [18.50245, 73.81718],
+  [18.50251, 73.81738], [18.50258, 73.81759], [18.50268, 73.81791], [18.50283, 73.81842],
+  [18.50292, 73.81870], [18.50293, 73.81874], [18.50294, 73.81878], [18.50295, 73.81881],
+  [18.50308, 73.81918], [18.50310, 73.81923], [18.50311, 73.81928], [18.50313, 73.81932],
+  [18.50314, 73.81934], [18.50316, 73.81941], [18.50318, 73.81945], [18.50320, 73.81949],
+  [18.50323, 73.81956], [18.50328, 73.81967], [18.50333, 73.81975], [18.50341, 73.81988],
+  [18.50345, 73.81993], [18.50382, 73.82043], [18.50404, 73.82075], [18.50420, 73.82101],
+  [18.50427, 73.82113], [18.50448, 73.82149], [18.50453, 73.82157], [18.50468, 73.82187],
+  [18.50478, 73.82209], [18.50485, 73.82224], [18.50499, 73.82255], [18.50511, 73.82283],
+  [18.50518, 73.82300], [18.50528, 73.82328], [18.50534, 73.82345], [18.50540, 73.82364],
+  [18.50549, 73.82395], [18.50553, 73.82411], [18.50555, 73.82420], [18.50567, 73.82466],
+  [18.50573, 73.82492], [18.50578, 73.82511], [18.50583, 73.82531], [18.50602, 73.82546],
+  [18.50602, 73.82551], [18.50603, 73.82555], [18.50604, 73.82561], [18.50609, 73.82579],
+  [18.50609, 73.82580], [18.50626, 73.82628], [18.50652, 73.82685], [18.50660, 73.82702],
+  [18.50690, 73.82768], [18.50695, 73.82778], [18.50704, 73.82796], [18.50750, 73.82884],
+  [18.50751, 73.82888], [18.50751, 73.82891], [18.50752, 73.82894], [18.50754, 73.82902],
+  [18.50755, 73.82902], [18.50757, 73.82907], [18.50760, 73.82913], [18.50763, 73.82920],
+  [18.50775, 73.82945], [18.50780, 73.82954], [18.50784, 73.82962], [18.50788, 73.82969],
+  [18.50792, 73.82978], [18.50797, 73.82989], [18.50800, 73.82995], [18.50804, 73.83003],
+  [18.50809, 73.83012], [18.50817, 73.83029], [18.50818, 73.83032], [18.50825, 73.83046],
+  [18.50826, 73.83048], [18.50829, 73.83053], [18.50829, 73.83054], [18.50839, 73.83075],
+  [18.50842, 73.83079], [18.50845, 73.83087], [18.50850, 73.83096], [18.50857, 73.83110],
+  [18.50863, 73.83121], [18.50863, 73.83122], [18.50872, 73.83137], [18.50878, 73.83148],
+  [18.50886, 73.83163], [18.50887, 73.83165], [18.50888, 73.83168], [18.50895, 73.83181],
+  [18.50899, 73.83188], [18.50908, 73.83206], [18.50912, 73.83212], [18.50913, 73.83214],
+  [18.50922, 73.83231], [18.50925, 73.83236], [18.50939, 73.83262], [18.50940, 73.83264],
+  [18.50945, 73.83273], [18.50957, 73.83295], [18.50961, 73.83303], [18.50974, 73.83328],
+  [18.50977, 73.83335], [18.50984, 73.83348], [18.50990, 73.83360], [18.50991, 73.83361],
+  [18.50991, 73.83362], [18.50992, 73.83363], [18.50995, 73.83365], [18.51000, 73.83369],
+  [18.51016, 73.83402], [18.51022, 73.83415], [18.51050, 73.83471], [18.51071, 73.83517],
+  [18.51077, 73.83532], [18.51100, 73.83582], [18.51127, 73.83637], [18.51143, 73.83669],
+  [18.51173, 73.83731], [18.51214, 73.83811], [18.51218, 73.83819], [18.51249, 73.83881],
+  [18.51274, 73.83937], [18.51283, 73.83958], [18.51294, 73.83984], [18.51301, 73.84006],
+  [18.51309, 73.84025], [18.51318, 73.84048], [18.51320, 73.84054], [18.51335, 73.84087],
+  [18.51344, 73.84103], [18.51350, 73.84111], [18.51356, 73.84118], [18.51366, 73.84129],
+  [18.51383, 73.84148], [18.51395, 73.84162], [18.51410, 73.84179], [18.51433, 73.84205],
+  [18.51442, 73.84214], [18.51445, 73.84214], [18.51447, 73.84214], [18.51455, 73.84219]
+];
+
+const SHIVAJI_ROAD_KML_COORDS = [
+  [18.52599, 73.85303], [18.52586, 73.85317], [18.52577, 73.85323], [18.52567, 73.85328],
+  [18.52488, 73.85362], [18.52467, 73.85371], [18.52463, 73.85378], [18.52429, 73.85393],
+  [18.52409, 73.85402], [18.52391, 73.85411], [18.52377, 73.85417], [18.52362, 73.85424],
+  [18.52354, 73.85427], [18.52340, 73.85434], [18.52322, 73.85443], [18.52304, 73.85450],
+  [18.52273, 73.85464], [18.52229, 73.85483], [18.52216, 73.85488], [18.52194, 73.85498],
+  [18.52179, 73.85504], [18.52176, 73.85508], [18.52173, 73.85510], [18.52153, 73.85521],
+  [18.52137, 73.85531], [18.52126, 73.85535], [18.52114, 73.85539], [18.52106, 73.85542],
+  [18.52094, 73.85549], [18.52089, 73.85553], [18.52083, 73.85557], [18.52076, 73.85562],
+  [18.52066, 73.85571], [18.52056, 73.85580], [18.52047, 73.85589], [18.52038, 73.85597],
+  [18.52031, 73.85604], [18.52029, 73.85606], [18.52024, 73.85609], [18.52019, 73.85613],
+  [18.52013, 73.85616], [18.52010, 73.85618], [18.51974, 73.85619], [18.51919, 73.85621],
+  [18.51855, 73.85628], [18.51824, 73.85628], [18.51781, 73.85629], [18.51740, 73.85628],
+  [18.51727, 73.85628], [18.51688, 73.85629], [18.51632, 73.85624], [18.51596, 73.85626],
+  [18.51562, 73.85630], [18.51529, 73.85637], [18.51516, 73.85639], [18.51477, 73.85660],
+  [18.51468, 73.85668], [18.51432, 73.85693], [18.51414, 73.85704], [18.51366, 73.85726],
+  [18.51350, 73.85732], [18.51322, 73.85742], [18.51272, 73.85760], [18.51263, 73.85765],
+  [18.51250, 73.85769], [18.51240, 73.85772], [18.51227, 73.85777], [18.51203, 73.85784],
+  [18.51189, 73.85788], [18.51183, 73.85789], [18.51175, 73.85790], [18.51168, 73.85790],
+  [18.51157, 73.85791], [18.51138, 73.85791], [18.51100, 73.85792], [18.51078, 73.85793],
+  [18.51064, 73.85793], [18.51040, 73.85793], [18.51004, 73.85793], [18.50982, 73.85794],
+  [18.50955, 73.85797], [18.50920, 73.85802], [18.50880, 73.85804], [18.50861, 73.85805],
+  [18.50853, 73.85805], [18.50836, 73.85805], [18.50813, 73.85806], [18.50769, 73.85806],
+  [18.50754, 73.85806], [18.50697, 73.85809], [18.50662, 73.85809], [18.50651, 73.85814],
+  [18.50634, 73.85822], [18.50621, 73.85830], [18.50609, 73.85838], [18.50599, 73.85844],
+  [18.50587, 73.85850], [18.50580, 73.85854], [18.50570, 73.85861], [18.50545, 73.85869],
+  [18.50509, 73.85879], [18.50486, 73.85885], [18.50438, 73.85899], [18.50430, 73.85905],
+  [18.50425, 73.85907], [18.50421, 73.85908], [18.50410, 73.85910], [18.50391, 73.85908],
+  [18.50367, 73.85903], [18.50269, 73.85886], [18.50246, 73.85879], [18.50229, 73.85876],
+  [18.50173, 73.85864], [18.50142, 73.85859], [18.50102, 73.85853], [18.50089, 73.85851],
+  [18.50075, 73.85847], [18.50059, 73.85858], [18.50047, 73.85857], [18.50034, 73.85856],
+  [18.50011, 73.85854], [18.49966, 73.85847], [18.49939, 73.85843], [18.49923, 73.85843],
+  [18.49900, 73.85841], [18.49882, 73.85838], [18.49864, 73.85836], [18.49861, 73.85835],
+  [18.49815, 73.85828], [18.49811, 73.85828], [18.49810, 73.85828], [18.49792, 73.85825],
+  [18.49775, 73.85822], [18.49759, 73.85819], [18.49757, 73.85819], [18.49740, 73.85816],
+  [18.49739, 73.85816], [18.49721, 73.85813], [18.49717, 73.85813], [18.49712, 73.85812],
+  [18.49704, 73.85810], [18.49693, 73.85808], [18.49689, 73.85808], [18.49686, 73.85808],
+  [18.49676, 73.85808], [18.49668, 73.85809], [18.49664, 73.85809], [18.49645, 73.85811],
+  [18.49627, 73.85813], [18.49618, 73.85813], [18.49615, 73.85813], [18.49611, 73.85813],
+  [18.49609, 73.85813], [18.49607, 73.85813], [18.49606, 73.85813], [18.49591, 73.85812],
+  [18.49588, 73.85812], [18.49573, 73.85810], [18.49543, 73.85808], [18.49536, 73.85807],
+  [18.49510, 73.85805], [18.49475, 73.85803], [18.49457, 73.85802], [18.49433, 73.85799],
+  [18.49419, 73.85800], [18.49401, 73.85799], [18.49382, 73.85798], [18.49319, 73.85794],
+  [18.49278, 73.85789], [18.49252, 73.85786], [18.49244, 73.85786], [18.49223, 73.85784],
+  [18.49196, 73.85783], [18.49160, 73.85780], [18.49128, 73.85779], [18.49090, 73.85778],
+  [18.49082, 73.85777], [18.49041, 73.85770], [18.48998, 73.85766], [18.48940, 73.85759],
+  [18.48927, 73.85758], [18.48825, 73.85756], [18.48794, 73.85758], [18.48784, 73.85758],
+  [18.48768, 73.85759], [18.48710, 73.85764], [18.48696, 73.85763], [18.48584, 73.85772],
+  [18.48559, 73.85773], [18.48515, 73.85773], [18.48483, 73.85772], [18.48441, 73.85770],
+  [18.48426, 73.85768], [18.48420, 73.85767], [18.48393, 73.85764], [18.48386, 73.85763],
+  [18.48367, 73.85756], [18.48360, 73.85755], [18.48334, 73.85749], [18.48298, 73.85743],
+  [18.48281, 73.85740], [18.48276, 73.85739], [18.48266, 73.85738], [18.48241, 73.85736],
+  [18.48129, 73.85733], [18.48125, 73.85732], [18.48117, 73.85732], [18.48042, 73.85731],
+  [18.48034, 73.85731], [18.48026, 73.85731], [18.48016, 73.85731], [18.47992, 73.85731],
+  [18.47955, 73.85733], [18.47884, 73.85733], [18.47873, 73.85732], [18.47844, 73.85732],
+  [18.47803, 73.85731], [18.47758, 73.85728], [18.47738, 73.85724], [18.47728, 73.85722],
+  [18.47713, 73.85715], [18.47707, 73.85710], [18.47680, 73.85688], [18.47673, 73.85684],
+  [18.47669, 73.85680], [18.47646, 73.85663], [18.47636, 73.85657], [18.47623, 73.85650],
+  [18.47613, 73.85646], [18.47607, 73.85644], [18.47600, 73.85642], [18.47590, 73.85641],
+  [18.47573, 73.85638], [18.47547, 73.85637], [18.47485, 73.85639], [18.47447, 73.85640],
+  [18.47409, 73.85643], [18.47384, 73.85645], [18.47369, 73.85646], [18.47361, 73.85647],
+  [18.47345, 73.85649], [18.47333, 73.85651], [18.47305, 73.85657], [18.47264, 73.85667],
+  [18.47240, 73.85674], [18.47229, 73.85677], [18.47183, 73.85689], [18.47174, 73.85692],
+  [18.47169, 73.85693], [18.47150, 73.85699], [18.47126, 73.85706], [18.47114, 73.85709],
+  [18.47099, 73.85712], [18.47086, 73.85715], [18.47076, 73.85717], [18.47066, 73.85719],
+  [18.47055, 73.85721], [18.46970, 73.85748], [18.46955, 73.85752], [18.46937, 73.85757],
+  [18.46921, 73.85761], [18.46903, 73.85765], [18.46848, 73.85774], [18.46842, 73.85776],
+  [18.46823, 73.85778], [18.46769, 73.85787], [18.46728, 73.85792], [18.46698, 73.85796],
+  [18.46640, 73.85802], [18.46596, 73.85806], [18.46575, 73.85808], [18.46565, 73.85809],
+  [18.46556, 73.85810], [18.46489, 73.85816], [18.46423, 73.85822], [18.46418, 73.85823],
+  [18.46411, 73.85823], [18.46407, 73.85824], [18.46368, 73.85827], [18.46356, 73.85828],
+  [18.46339, 73.85829], [18.46326, 73.85829], [18.46317, 73.85829], [18.46298, 73.85829],
+  [18.46281, 73.85829], [18.46276, 73.85828], [18.46275, 73.85828], [18.46270, 73.85828],
+  [18.46269, 73.85828], [18.46266, 73.85828], [18.46259, 73.85827], [18.46227, 73.85825],
+  [18.46216, 73.85824], [18.46197, 73.85823], [18.46153, 73.85817], [18.46114, 73.85815],
+  [18.46096, 73.85815], [18.46080, 73.85814], [18.46033, 73.85812], [18.45936, 73.85808],
+  [18.45921, 73.85808], [18.45908, 73.85809], [18.45891, 73.85811], [18.45865, 73.85815],
+  [18.45853, 73.85817], [18.45833, 73.85822], [18.45793, 73.85831], [18.45781, 73.85833],
+  [18.45760, 73.85839], [18.45750, 73.85842], [18.45746, 73.85843], [18.45743, 73.85844],
+  [18.45737, 73.85845], [18.45711, 73.85853], [18.45703, 73.85855], [18.45685, 73.85859],
+  [18.45676, 73.85861], [18.45671, 73.85862], [18.45667, 73.85863], [18.45661, 73.85864],
+  [18.45649, 73.85865], [18.45633, 73.85867], [18.45617, 73.85868], [18.45543, 73.85878],
+  [18.45540, 73.85878], [18.45528, 73.85879], [18.45512, 73.85880], [18.45499, 73.85880],
+  [18.45467, 73.85878], [18.45463, 73.85877], [18.45458, 73.85877], [18.45438, 73.85873],
+  [18.45430, 73.85871], [18.45412, 73.85868], [18.45367, 73.85860], [18.45297, 73.85846],
+  [18.45203, 73.85832], [18.45171, 73.85827], [18.45133, 73.85822], [18.45118, 73.85820],
+  [18.45114, 73.85820], [18.45096, 73.85820], [18.45072, 73.85821], [18.45043, 73.85824],
+  [18.44984, 73.85834], [18.44939, 73.85840], [18.44901, 73.85844], [18.44897, 73.85844],
+  [18.44874, 73.85846], [18.44859, 73.85849], [18.44844, 73.85852], [18.44836, 73.85854]
+];
+
+const PUNE_CORRIDORS_GEO = {
+  'ROUTE-PUNE-FC': {
+    name: 'FC Road Corridor',
+    color: '#1C6E8C',
+    coords: FC_ROAD_KML_COORDS
+  },
+  'ROUTE-PUNE-JM': {
+    name: 'JM Road Corridor',
+    color: '#2E7D53',
+    coords: JM_ROAD_KML_COORDS
+  },
+  'ROUTE-PUNE-KARVE': {
+    name: 'Karve Road Corridor',
+    color: '#CC7A2E',
+    coords: KARVE_ROAD_KML_COORDS
+  },
+  'ROUTE-PUNE-SHIVAJI': {
+    name: 'Shivaji Road Central Corridor',
+    color: '#5B3FA8',
+    coords: SHIVAJI_ROAD_KML_COORDS
+  }
+};
+
+// Multi-corridor Road snapping projection
+function snapToRoad(lat, lon, preferredRouteId = null) {
+  if (!lat || !lon) return [18.5228, 73.8415];
+  let minDistanceSq = Infinity;
+  let bestPoint = [lat, lon];
+
+  // If a specific route corridor is designated (e.g. ROUTE-PUNE-FC for actual simulator buses and potholes),
+  // snap strictly to that corridor so entities never drift to adjacent parallel corridors like JM Road.
+  const targetCorridors = (preferredRouteId && PUNE_CORRIDORS_GEO[preferredRouteId])
+    ? [PUNE_CORRIDORS_GEO[preferredRouteId]]
+    : Object.values(PUNE_CORRIDORS_GEO);
+
+  for (const corridor of targetCorridors) {
+    const coords = corridor.coords;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+
+      const dx = p2[0] - p1[0];
+      const dy = p2[1] - p1[1];
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) continue;
+
+      let t = ((lat - p1[0]) * dx + (lon - p1[1]) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+
+      const projLat = p1[0] + t * dx;
+      const projLon = p1[1] + t * dy;
+      const distSq = (lat - projLat) * (lat - projLat) + (lon - projLon) * (lon - projLon);
+
+      if (distSq < minDistanceSq) {
+        minDistanceSq = distSq;
+        bestPoint = [projLat, projLon];
+      }
+    }
+  }
+
+  // Snap if within reasonable corridor vicinity (~350m)
+  if (minDistanceSq < 0.00030) {
+    return [Number(bestPoint[0].toFixed(5)), Number(bestPoint[1].toFixed(5))];
+  }
+  return [Number(lat.toFixed(5)), Number(lon.toFixed(5))];
+}
+
+/* =========================================================================
+   APPLICATION STATE (NO SEED DATA - PURE REAL-TIME LIVE STATE)
+   ========================================================================= */
+const state = {
+  route: 'dashboard',
+  selectedIncidentId: null,
+  buses: [],
+  incidents: [],
+  tickets: [],
+  events: [],
+  stats: {
+    total_incidents: 0,
+    verified_incidents: 0,
+    open_tickets: 0,
+    fleet_online: 0,
+    fleet_total: 0
+  },
+  connected: false,
+  searchTerm: '',
+  mapCenter: [18.5228, 73.8420],
+  mapZoom: 15,
+};
+
+/* =========================================================================
+   NAVIGATION (Authorities removed per requirements, Settings disconnected)
+   ========================================================================= */
+const ICONS = {
+  dashboard: '<path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/>',
+  buses: '<path d="M4 6h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M4 12h16"/><circle cx="8" cy="18.5" r="1.5"/><circle cx="16" cy="18.5" r="1.5"/><path d="M8 6V4h8v2"/>',
+  incidents: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',
+  fusion: '<path d="M8 3v6l-5 5v7h18v-7l-5-5V3"/><path d="M8 3h8"/>',
+  tickets: '<path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 000-4z"/>',
+  reports: '<path d="M4 20V10M11 20V4M18 20v-7"/>',
+};
+
+const ROUTES = [
+  { id: 'dashboard', label: 'Dashboard', sub: 'Fleet-wide civic sensing overview' },
+  { id: 'buses', label: 'Buses', sub: 'Fleet status & edge-AI health' },
+  { id: 'incidents', label: 'Incidents', sub: 'Verified & pending urban issues' },
+  { id: 'fusion', label: 'Fusion & Verification', sub: 'Multi-bus observation clustering' },
+  { id: 'tickets', label: 'Tickets', sub: 'Civic dispatch & lifecycle' },
+  { id: 'reports', label: 'Reports', sub: 'Corridor trends & resolution metrics' },
+];
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = ROUTES.map(r => {
+    let countBadge = '';
+    if (r.id === 'buses' && state.buses.length) countBadge = `<span class="cnt">${state.buses.length}</span>`;
+    if (r.id === 'incidents' && state.incidents.length) countBadge = `<span class="cnt">${state.incidents.length}</span>`;
+    if (r.id === 'tickets' && state.tickets.length) countBadge = `<span class="cnt">${state.tickets.length}</span>`;
+
+    return `
+      <button class="nav-item ${r.id === state.route ? 'active' : ''}" data-route="${r.id}" title="${r.label}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[r.id]}</svg>
+        <span>${r.label}</span>
+        ${countBadge}
+      </button>`;
+  }).join('');
+
+  nav.querySelectorAll('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.route = btn.dataset.route;
+      render();
+    });
+  });
+}
+
+function updateDsIndicator(connected) {
+  const el = document.getElementById('dsIndicator');
+  if (connected) {
+    el.innerHTML = `<span class="dot pulse"></span> Live Pipeline Active`;
+  } else {
+    el.innerHTML = `<span class="dot offline"></span> Reconnecting...`;
+  }
+}
+
+/* =========================================================================
+   LEAFLET GIS ENGINE IMPLEMENTATION
+   ========================================================================= */
+let leafletMap = null;
+let tileLayer = null;
+let roadPolyline = null;
+let corridorPolylines = {};
+let busMarkers = {};
+let incidentMarkers = {};
+
+function initLeafletMap() {
+  const container = document.getElementById('leafletMap');
+  if (!container) return;
+
+  // If map already initialized and attached, invalidate size and refresh markers without view reset
+  if (leafletMap && leafletMap.getContainer() && container.contains(leafletMap.getContainer())) {
+    leafletMap.invalidateSize();
+    updateMapMarkers();
+    return;
+  }
+
+  if (leafletMap) {
+    try { leafletMap.remove(); } catch (e) {}
+    leafletMap = null;
+    busMarkers = {};
+    incidentMarkers = {};
+    corridorPolylines = {};
+  }
+
+  // Restore previous center and zoom so user pan/zoom is never disrupted
+  const initCenter = state.mapCenter || [18.5228, 73.8420];
+  const initZoom = state.mapZoom || 15;
+
+  leafletMap = L.map('leafletMap', {
+    center: initCenter,
+    zoom: initZoom,
+    zoomControl: true,
+  });
+
+  // Track map view changes
+  leafletMap.on('moveend', () => {
+    state.mapCenter = leafletMap.getCenter();
+    state.mapZoom = leafletMap.getZoom();
+  });
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  tileLayer = L.tileLayer(tileUrl, {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+  }).addTo(leafletMap);
+
+  // Plot All Pune Road Corridors
+  for (const [routeId, corridor] of Object.entries(PUNE_CORRIDORS_GEO)) {
+    // 1. Casing line for contrast
+    L.polyline(corridor.coords, {
+      color: isDark ? '#0F4A61' : '#0E1B2C',
+      weight: 8,
+      opacity: 0.55,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(leafletMap);
+
+    // 2. Active transit corridor centerline
+    const poly = L.polyline(corridor.coords, {
+      color: corridor.color,
+      weight: 4.5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(leafletMap);
+
+    corridorPolylines[routeId] = poly;
+  }
+  roadPolyline = corridorPolylines['ROUTE-PUNE-FC'] || null;
+
+  // Render markers
+  updateMapMarkers();
+
+  // Invalidate map size after DOM paints
+  setTimeout(() => {
+    if (leafletMap) leafletMap.invalidateSize();
+  }, 200);
+}
+
+function updateMapTileTheme(theme) {
+  if (!leafletMap || !tileLayer) return;
+  tileLayer.setUrl('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+}
+
+function focusCorridor(name) {
+  if (!leafletMap) return;
+  if (name === 'ALL') {
+    const polys = Object.values(corridorPolylines);
+    if (polys.length) {
+      const group = L.featureGroup(polys);
+      leafletMap.fitBounds(group.getBounds(), { padding: [30, 30] });
+    }
+  } else {
+    const key = `ROUTE-PUNE-${name.toUpperCase()}`;
+    if (corridorPolylines[key]) {
+      leafletMap.fitBounds(corridorPolylines[key].getBounds(), { padding: [30, 30] });
+    }
+  }
+}
+
+function resetMapToFCRoad() {
+  focusCorridor('FC');
+}
+
+function mapMarkerColorHex(type) {
+  const colors = {
+    POTHOLE: '#B94A3B',
+    GARBAGE: '#2E7D53',
+    TRAFFIC_OBSTRUCTION: '#CC7A2E',
+    PEDESTRIAN_RISK: '#5B3FA8'
+  };
+  return colors[type] || '#B94A3B';
+}
+
+function updateMapMarkers() {
+  if (!leafletMap) return;
+
+  // 1. Update live bus markers
+  state.buses.forEach(bus => {
+    const rawLat = bus.latitude || 18.5204;
+    const rawLon = bus.longitude || 73.8436;
+    const isActualSim = bus.bus_id === 'BUS-001' || bus.bus_id === 'BUS-002';
+    const busRoute = isActualSim ? 'ROUTE-PUNE-FC' : (bus.route_id || null);
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon, busRoute);
+
+    const isOnline = bus.status === 'ONLINE' || bus.status === 'online';
+    const heading = bus.heading_degrees || 0;
+
+    const busIcon = L.divIcon({
+      className: 'leaflet-bus-icon-wrap',
+      html: `
+        <div class="leaflet-bus-marker ${isOnline ? 'online' : 'offline'}" title="${bus.bus_id} (${bus.speed_kmh || 0} km/h)">
+          <div class="bus-pulse"></div>
+          <div class="bus-core" style="transform: rotate(${heading}deg);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14">
+              <path d="M4 6h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2z"/>
+              <path d="M4 12h16"/>
+              <circle cx="8" cy="18.5" r="1.5" fill="currentColor"/>
+              <circle cx="16" cy="18.5" r="1.5" fill="currentColor"/>
+            </svg>
+          </div>
+          <div class="bus-pill-tag">${bus.bus_id}</div>
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    });
+
+    if (busMarkers[bus.bus_id]) {
+      busMarkers[bus.bus_id].setLatLng([snappedLat, snappedLon]);
+      busMarkers[bus.bus_id].setIcon(busIcon);
+    } else {
+      const marker = L.marker([snappedLat, snappedLon], { icon: busIcon, zIndexOffset: 1000 });
+      marker.on('click', () => openBusDrawer(bus.bus_id));
+      marker.addTo(leafletMap);
+      busMarkers[bus.bus_id] = marker;
+    }
+  });
+
+  // 2. Update live incident markers
+  state.incidents.forEach(inc => {
+    const rawLat = inc.latitude || inc.road_aligned_latitude || 18.5204;
+    const rawLon = inc.longitude || inc.road_aligned_longitude || 73.8436;
+    const incRoute = inc.route_id || (inc.locality && inc.locality.includes('FC') ? 'ROUTE-PUNE-FC' : null) || 'ROUTE-PUNE-FC';
+    const [snappedLat, snappedLon] = snapToRoad(rawLat, rawLon, incRoute);
+
+    const type = inc.event_type || inc.type || 'POTHOLE';
+    const isVerified = inc.status === 'VERIFIED' || inc.status === 'verified';
+    const isSelected = inc.incident_id === state.selectedIncidentId;
+    const colorHex = mapMarkerColorHex(type);
+
+    const incIcon = L.divIcon({
+      className: 'leaflet-incident-icon-wrap',
+      html: `
+        <div class="leaflet-incident-marker ${isSelected ? 'selected' : ''}" style="--pin-color: ${colorHex};" title="${inc.incident_id} - ${type}">
+          <div class="pin-ring"></div>
+          <div class="pin-head">
+            <span class="pin-type-dot"></span>
+          </div>
+          ${isVerified ? '<span class="pin-verified-badge">✓</span>' : ''}
+        </div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 26]
+    });
+
+    if (incidentMarkers[inc.incident_id]) {
+      incidentMarkers[inc.incident_id].setLatLng([snappedLat, snappedLon]);
+      incidentMarkers[inc.incident_id].setIcon(incIcon);
+    } else {
+      const marker = L.marker([snappedLat, snappedLon], { icon: incIcon });
+      marker.on('click', () => openIncidentDrawer(inc.incident_id));
+      marker.addTo(leafletMap);
+      incidentMarkers[inc.incident_id] = marker;
+    }
+  });
+}
+
+/* =========================================================================
+   DRAWERS (Slide-in detailed inspections)
+   ========================================================================= */
+function openDrawer(headHTML, bodyHTML, footHTML) {
+  document.getElementById('drawerHead').innerHTML = headHTML;
+  document.getElementById('drawerBody').innerHTML = bodyHTML;
+  document.getElementById('drawerFoot').innerHTML = footHTML || '';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+
+function sevBadge(sev) {
+  const s = (sev || 'MEDIUM').toUpperCase();
+  return `<span class="badge sev-${s.toLowerCase()}">${s}</span>`;
+}
+function statusBadge(st) {
+  const map = {
+    VERIFIED: 'st-acknowledged', verified: 'st-acknowledged',
+    PENDING: 'st-reported', pending: 'st-reported',
+    REPORTED: 'st-reported', ACKNOWLEDGED: 'st-acknowledged',
+    IN_PROGRESS: 'st-inprogress', RESOLVED: 'st-resolved'
+  };
+  const labelMap = {
+    VERIFIED: 'Verified', verified: 'Verified',
+    PENDING: 'Pending Fusion', pending: 'Pending Fusion',
+    REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged',
+    IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved'
+  };
+  return `<span class="badge ${map[st] || 'type'}">${labelMap[st] || st}</span>`;
+}
+function fmtTime(iso) {
+  if (!iso) return 'Just now';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+function gmapsLink(lat, lng) {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
+
+function evidenceSVG(type, w = 260, h = 150) {
+  const bg = { POTHOLE: '#8A8577', GARBAGE: '#7E8B72', TRAFFIC_OBSTRUCTION: '#7A8593', PEDESTRIAN_RISK: '#8B8377' }[type] || '#888';
+  let shape = '';
+  if (type === 'POTHOLE') {
+    shape = `<ellipse cx="130" cy="95" rx="46" ry="20" fill="#2B2B2E" opacity="0.85"/>
+      <ellipse cx="130" cy="93" rx="38" ry="15" fill="#17181A"/>
+      <path d="M40 130 L220 130" stroke="#D9D3C2" stroke-width="2" stroke-dasharray="6 6" opacity=".5"/>`;
+  } else if (type === 'GARBAGE') {
+    shape = `<ellipse cx="150" cy="112" rx="55" ry="14" fill="#4B4030" opacity=".5"/>
+      <rect x="105" y="70" width="28" height="34" rx="3" fill="#B7C9A5"/>
+      <rect x="140" y="60" width="26" height="44" rx="3" fill="#C9B79A"/>
+      <rect x="168" y="78" width="22" height="26" rx="3" fill="#9FB48E"/>`;
+  } else if (type === 'TRAFFIC_OBSTRUCTION') {
+    shape = `<polygon points="130,55 165,115 95,115" fill="#D98A3D" stroke="#7A4B14" stroke-width="2"/>
+      <rect x="122" y="75" width="16" height="24" fill="#3A2A10"/>`;
+  } else {
+    shape = `<circle cx="130" cy="90" r="26" fill="#E7C36B"/>
+      <circle cx="130" cy="78" r="9" fill="#3A2A10"/>
+      <rect x="120" y="88" width="20" height="26" rx="6" fill="#3A2A10"/>`;
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="g${type}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${bg}" stop-opacity="0.9"/><stop offset="1" stop-color="#2B2E33"/>
+    </linearGradient></defs>
+    <rect width="${w}" height="${h}" fill="url(#g${type})"/>
+    ${shape}
+    <rect x="70" y="55" width="120" height="70" fill="none" stroke="#7CE38B" stroke-width="1.6" stroke-dasharray="5 4" rx="4"/>
+    <rect x="70" y="41" width="118" height="14" rx="3" fill="#111820" opacity=".8"/>
+    <text x="76" y="51" font-family="JetBrains Mono, monospace" font-size="9" fill="#7CE38B">EDGE AI DETECT · ${type}</text>
+  </svg>`;
+}
+
+function renderEvidenceImage(inc) {
+  let imgPath = '';
+  if (inc.evidence_image) {
+    imgPath = inc.evidence_image.startsWith('/') ? inc.evidence_image : '/' + inc.evidence_image;
+  } else if (inc.event_id) {
+    imgPath = `/runtime/evidence/${inc.event_id}.jpg`;
+  } else {
+    // Check linked ticket for evidence_image
+    const ticket = (state.tickets || []).find(t => t.incident_id === inc.incident_id || (inc.ticket_id && t.ticket_id === inc.ticket_id));
+    if (ticket && ticket.evidence_image) {
+      imgPath = ticket.evidence_image.startsWith('/') ? ticket.evidence_image : '/' + ticket.evidence_image;
+    } else {
+      // Check recent events from this bus or corridor
+      const ev = (state.events || []).find(e => (inc.buses && inc.buses.includes(e.bus_id)) || e.bus_id === inc.bus_id);
+      if (ev && ev.evidence_image) {
+        imgPath = ev.evidence_image.startsWith('/') ? ev.evidence_image : '/' + ev.evidence_image;
+      } else if (ev && ev.event_id) {
+        imgPath = `/runtime/evidence/${ev.event_id}.jpg`;
+      } else {
+        imgPath = `/runtime/evidence/${inc.incident_id || 'EVT-000001'}.jpg`;
+      }
+    }
+  }
+
+  const type = inc.event_type || inc.type || 'POTHOLE';
+  const confPct = Math.round((inc.confidence || 0.9) * 100);
+
+  return `
+    <div class="evidence-container">
+      <img class="evidence-img" src="${imgPath}"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+           alt="Edge Defect Snapshot" />
+      <div class="evidence-fallback" style="display:none; width:100%; height:100%;">
+        ${evidenceSVG(type)}
+      </div>
+      <div class="evidence-hud-overlay">
+        <span>${type.replace('_', ' ')}</span>
+        <span class="evidence-hud-conf">${confPct}% AI CONFIDENCE</span>
+      </div>
+    </div>
+  `;
+}
+
+function openIncidentDrawer(id) {
+  const inc = state.incidents.find(i => i.incident_id === id);
+  if (!inc) return;
+
+  state.selectedIncidentId = id;
+  const ticket = state.tickets.find(t => t.incident_id === id || t.ticket_id === inc.ticket_id);
+  const incRoute = inc.route_id || (inc.locality && inc.locality.includes('FC') ? 'ROUTE-PUNE-FC' : null) || 'ROUTE-PUNE-FC';
+  const [snappedLat, snappedLon] = snapToRoad(inc.latitude, inc.longitude, incRoute);
+
+  if (leafletMap && incidentMarkers[id]) {
+    leafletMap.panTo([snappedLat, snappedLon]);
+  }
+
+  const type = inc.event_type || inc.type || 'POTHOLE';
+  const buses = inc.buses || (inc.bus_id ? [inc.bus_id] : ['BUS-001']);
+
+  const head = `
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge type">${type.replace('_', ' ')}</span>
+        ${statusBadge(inc.status || 'PENDING')}
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;">${inc.incident_id}</h3>
+      <div class="mono" style="margin-top:2px;">FC Road Corridor, Pune</div>
+    </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
+
+  const body = `
+    ${renderEvidenceImage(inc)}
+
+    <div class="section-title">Corroborating Fleet Buses</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${buses.map(b => `<span class="badge type mono">${b}</span>`).join('')}
+    </div>
+
+    <div class="section-title">Telemetry Detail</div>
+    <dl class="kv">
+      <dt>AI Confidence</dt><dd>${Math.round((inc.confidence || 0.9) * 100)}%</dd>
+      <dt>Severity</dt><dd>${sevBadge(inc.severity)}</dd>
+      <dt>Road Alignment</dt><dd class="mono">${snappedLat}°, ${snappedLon}°</dd>
+      <dt>First Detected</dt><dd>${fmtTime(inc.first_observed_at || inc.created_at || inc.timestamp)}</dd>
+      <dt>Linked Ticket</dt><dd>${inc.ticket_id ? `<span class="mono">${inc.ticket_id}</span>` : '<span style="color:var(--ink-faint)">Awaiting auto-dispatch</span>'}</dd>
+    </dl>
+
+    ${ticket ? `
+      <div class="section-title">Ticket Lifecycle (${ticket.ticket_id})</div>
+      ${renderStepperHTML(ticket)}
+    ` : ''}
+  `;
+
+  const foot = `
+    <a class="btn ghost sm" href="${gmapsLink(snappedLat, snappedLon)}" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+      Open in Google Maps
+    </a>
+    ${ticket
+      ? `<button class="btn primary sm" onclick="openTicketDrawer('${ticket.ticket_id}')">View Ticket</button>`
+      : `<button class="btn primary sm" onclick="raiseTicketForIncident('${inc.incident_id}')">Raise Ticket</button>`}
+  `;
+
+  openDrawer(head, body, foot);
+}
+
+function renderStepperHTML(ticket) {
+  const steps = [
+    { label: 'Reported', key: 'REPORTED' },
+    { label: 'Acknowledged', key: 'ACKNOWLEDGED' },
+    { label: 'In Progress', key: 'IN_PROGRESS' },
+    { label: 'Resolved', key: 'RESOLVED' }
+  ];
+
+  const order = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+  const curIdx = order.indexOf(ticket.status || 'REPORTED');
+
+  return `<div class="stepper">
+    ${steps.map((s, i) => {
+      const isDone = i <= curIdx;
+      const isCurrent = i === curIdx;
+      const timeStr = isDone ? fmtTime(ticket.updated_at || ticket.created_at) : 'Pending';
+      return `<div class="step ${isDone ? 'done' : ''} ${isCurrent ? 'current' : ''}">
+        <div class="node"></div>
+        <div>
+          <div class="stitle">${s.label}</div>
+          <div class="stime">${timeStr}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function openTicketDrawer(ticketId) {
+  const t = state.tickets.find(x => x.ticket_id === ticketId);
+  if (!t) return;
+  const inc = state.incidents.find(i => i.incident_id === t.incident_id);
+  const incRoute = (inc && inc.route_id) ? inc.route_id : 'ROUTE-PUNE-FC';
+  const [lat, lon] = snapToRoad(t.latitude || (inc ? inc.latitude : 18.5204), t.longitude || (inc ? inc.longitude : 73.8436), incRoute);
+
+  const head = `
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge type">${(t.event_type || 'POTHOLE').replace('_', ' ')}</span>
+        ${statusBadge(t.status || 'REPORTED')}
+      </div>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;">${t.ticket_id}</h3>
+      <div class="mono" style="margin-top:2px;">FC Road Corridor, Pune</div>
+    </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
+
+  const body = `
+    <dl class="kv">
+      <dt>Incident ID</dt><dd class="mono">${t.incident_id || 'INC-000001'}</dd>
+      <dt>Workorder ID</dt><dd class="mono">${t.workorder_id || ('WO-' + new Date().getFullYear() + '-000001')}</dd>
+      <dt>Authority</dt><dd>Pune Municipal Corporation (Road Dept)</dd>
+      <dt>Priority</dt><dd>${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}</dd>
+      <dt>Repair SLA</dt><dd class="mono">${t.estimated_repair_sla_hours || 48}h</dd>
+      <dt>Created</dt><dd>${fmtTime(t.created_at)}</dd>
+      <dt>Coordinates</dt><dd class="mono">${lat}°, ${lon}°</dd>
+    </dl>
+    <div class="section-title">Lifecycle Progress</div>
+    ${renderStepperHTML(t)}
+  `;
+
+  const order = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+  const curIdx = order.indexOf(t.status || 'REPORTED');
+  const nextStage = curIdx < order.length - 1 ? order[curIdx + 1] : null;
+
+  const foot = `
+    <a class="btn ghost sm" href="${gmapsLink(lat, lon)}" target="_blank" rel="noopener">Google Maps</a>
+    <button class="btn primary sm" ${!nextStage ? 'disabled' : ''} onclick="advanceTicketStatus('${t.ticket_id}', '${nextStage}')">
+      ${nextStage ? 'Mark ' + nextStage.replace('_', ' ') : 'Lifecycle Complete'}
+    </button>
+  `;
+
+  openDrawer(head, body, foot);
+}
+
+function openBusDrawer(busId) {
+  const b = state.buses.find(x => x.bus_id === busId);
+  if (!b) return;
+
+  const relatedIncidents = state.incidents.filter(i => (i.buses && i.buses.includes(busId)) || i.bus_id === busId);
+  const isOnline = b.status === 'ONLINE' || b.status === 'online';
+
+  const head = `
+    <div>
+      <span class="status-pill ${isOnline ? 'online' : 'offline'}">
+        <span class="dot" style="background:${isOnline ? 'var(--green)' : 'var(--ink-faint)'}"></span>
+        ${isOnline ? 'Online' : 'Offline'}
+      </span>
+      <h3 style="font-family:var(--font-display);font-size:16.5px;margin-top:8px;" class="mono">${b.bus_id}</h3>
+      <div style="font-size:11.5px;color:var(--ink-soft);margin-top:2px;">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
+    </div>
+    <button class="iconbtn x" onclick="closeDrawer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>`;
+
+  const body = `
+    <dl class="kv">
+      <dt>Edge AI</dt><dd>YOLO + ByteTrack</dd>
+      <dt>Speed</dt><dd class="mono">${b.speed_kmh ? b.speed_kmh.toFixed(1) + ' km/h' : '36.0 km/h'}</dd>
+      <dt>Heading</dt><dd class="mono">${b.heading_degrees ? b.heading_degrees.toFixed(0) + '°' : 'N/A'}</dd>
+      <dt>Battery</dt><dd>${b.battery || 88}%</dd>
+      <dt>Session</dt><dd>${b.uptime || 'Live'}</dd>
+      <dt>Last Event</dt><dd class="mono">${b.last_event || 'EVT-010001'}</dd>
+      <dt>Uplink</dt><dd>HTTP Ingest + MQTT Broker</dd>
+    </dl>
+    <div class="section-title">Contributed Defect Observations (${relatedIncidents.length})</div>
+    ${relatedIncidents.length ? relatedIncidents.map(i => `
+      <div class="obs-row" style="cursor:pointer;" onclick="openIncidentDrawer('${i.incident_id}')">
+        <div class="busdot">${(i.event_type || i.type || 'POT').slice(0, 3)}</div>
+        <div style="flex:1;">
+          <div style="font-size:12.5px;font-weight:600;">${i.incident_id} · ${(i.event_type || i.type || 'POTHOLE').replace('_', ' ')}</div>
+          <div style="font-size:11px;color:var(--ink-faint);">FC Road Corridor</div>
+        </div>
+        ${statusBadge(i.status || 'PENDING')}
+      </div>`).join('') : `<div class="empty">No incidents detected yet on this run.</div>`}
+  `;
+
+  openDrawer(head, body, '');
+}
+
+/* ============ TICKET ACTIONS (Real REST API calls) ============ */
+async function advanceTicketStatus(ticketId, nextStage) {
+  if (!nextStage) return;
+  try {
+    const res = await fetch(`/api/v1/tickets/${ticketId}/status?new_status=${nextStage}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const updated = data.ticket;
+      const idx = state.tickets.findIndex(t => t.ticket_id === ticketId);
+      if (idx !== -1) state.tickets[idx] = updated;
+      openTicketDrawer(ticketId);
+      if (state.route === 'tickets') renderPage();
+    }
+  } catch (err) {
+    console.error('Failed to advance ticket status:', err);
+  }
+}
+
+async function raiseTicketForIncident(incidentId) {
+  const inc = state.incidents.find(i => i.incident_id === incidentId);
+  if (!inc) return;
+
+  const ticketPayload = {
+    ticket_id: `POT-${new Date().getFullYear()}-${incidentId.split('-').pop() || '000001'}`,
+    incident_id: incidentId,
+    workorder_id: `WO-${new Date().getFullYear()}-${incidentId.split('-').pop() || '000001'}`,
+    event_type: inc.event_type || inc.type || 'POTHOLE',
+    confidence: inc.confidence || 0.94,
+    latitude: inc.latitude || 18.5204,
+    longitude: inc.longitude || 73.8436,
+    evidence_image: inc.evidence_image || `runtime/evidence/${inc.event_id || 'EVT-010001'}.jpg`,
+    google_maps_url: gmapsLink(inc.latitude || 18.5204, inc.longitude || 73.8436),
+    estimated_repair_sla_hours: 48,
+    status: 'REPORTED',
+  };
+
+  try {
+    const res = await fetch('/api/v1/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticketPayload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.tickets.push(data.ticket);
+      inc.ticket_id = data.ticket.ticket_id;
+      openIncidentDrawer(incidentId);
+      if (state.route === 'tickets') renderPage();
+      else if (state.route === 'dashboard') updateDashboardKpis();
+    }
+  } catch (err) {
+    console.error('Failed to raise ticket:', err);
+  }
+}
+
+/* =========================================================================
+   PAGE RENDERERS
+   ========================================================================= */
+function pageDashboard() {
+  const total = state.incidents.length;
+  const verified = state.incidents.filter(i => (i.status === 'VERIFIED' || i.status === 'verified')).length;
+  const openTickets = state.tickets.filter(t => t.status !== 'RESOLVED').length;
+  const onlineBuses = state.buses.filter(b => (b.status === 'ONLINE' || b.status === 'online')).length;
+  const fleetTotal = state.buses.length;
+
+  return `
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="label">Total Incidents</div>
+      <div class="value" id="kpiTotal">${total}</div>
+      <div class="delta up">Fused from live detections</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Verified Incidents</div>
+      <div class="value" id="kpiVerified">${verified}</div>
+      <div class="delta up">Multi-bus corroborated</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Open Tickets</div>
+      <div class="value" id="kpiOpenTickets">${openTickets}</div>
+      <div class="delta down" id="kpiResolvedSummary">${state.tickets.filter(t => t.status === 'RESOLVED').length} resolved</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Fleet Online</div>
+      <div class="value" id="kpiOnlineBuses">${onlineBuses}/${fleetTotal}</div>
+      <div class="delta up">Edge AI streaming live</div>
+    </div>
+  </div>
+
+  <div class="panel map-panel">
+    <div class="panel-head">
+      <h3>Live GIS Map — Pune Transit Corridors</h3>
+      <span class="link" onclick="focusCorridor('ALL')">View All Corridors</span>
+    </div>
+    <div class="map-wrap">
+      <div id="leafletMap"></div>
+      <div class="map-controls-bar">
+        <button class="map-ctl-btn" onclick="focusCorridor('FC')" title="Focus FC Road Corridor">FC Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('JM')" title="Focus JM Road Corridor">JM Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('KARVE')" title="Focus Karve Road Corridor">Karve Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('SHIVAJI')" title="Focus Shivaji Road Corridor">Shivaji Road</button>
+        <button class="map-ctl-btn" onclick="focusCorridor('ALL')" title="Fit all transit corridors">All Corridors</button>
+      </div>
+      <div class="map-legend">
+        <div><span class="sw" style="background:#B94A3B"></span>Pothole</div>
+        <div><span class="sw" style="background:#2E7D53"></span>Garbage</div>
+        <div><span class="sw" style="background:#CC7A2E"></span>Obstruction</div>
+        <div><span class="sw" style="background:#5B3FA8"></span>Pedestrian Risk</div>
+      </div>
+      <div class="map-badge">
+        <span class="dot pulse"></span>
+        <span id="mapBadgeInfo">Leaflet GIS · ${total} incidents · ${onlineBuses} buses active</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel-head">
+      <h3>Recent Road Incidents</h3>
+      <span class="link" onclick="state.route='incidents';render()">View all →</span>
+    </div>
+    <div class="panel-body" id="dashboardRecentWrap" style="padding-top:0;">
+      ${incidentsTable(state.incidents.slice(0, 6))}
+    </div>
+  </div>
+  `;
+}
+
+function updateDashboardKpis() {
+  const total = state.incidents.length;
+  const verified = state.incidents.filter(i => (i.status === 'VERIFIED' || i.status === 'verified')).length;
+  const openTickets = state.tickets.filter(t => t.status !== 'RESOLVED').length;
+  const resolved = state.tickets.filter(t => t.status === 'RESOLVED').length;
+  const onlineBuses = state.buses.filter(b => (b.status === 'ONLINE' || b.status === 'online')).length;
+  const fleetTotal = state.buses.length;
+
+  const elTot = document.getElementById('kpiTotal');
+  if (elTot) elTot.textContent = total;
+  const elVer = document.getElementById('kpiVerified');
+  if (elVer) elVer.textContent = verified;
+  const elTkt = document.getElementById('kpiOpenTickets');
+  if (elTkt) elTkt.textContent = openTickets;
+  const elRes = document.getElementById('kpiResolvedSummary');
+  if (elRes) elRes.textContent = `${resolved} resolved`;
+  const elBus = document.getElementById('kpiOnlineBuses');
+  if (elBus) elBus.textContent = `${onlineBuses}/${fleetTotal}`;
+  const elBadge = document.getElementById('mapBadgeInfo');
+  if (elBadge) elBadge.textContent = `Leaflet GIS · ${total} incidents · ${onlineBuses} buses active`;
+}
+
+function updateDashboardRecentTable() {
+  const wrap = document.getElementById('dashboardRecentWrap');
+  if (wrap) {
+    wrap.innerHTML = incidentsTable(state.incidents.slice(0, 6));
+  }
+}
+
+function incidentsTable(list) {
+  if (!list.length) {
+    return `<div class="empty">No incidents detected yet.<br>System is actively monitoring Pune transit corridors.</div>`;
+  }
+  return `<table>
+    <thead><tr><th>ID</th><th>Type</th><th>Location</th><th>Severity</th><th>Confidence</th><th>Buses</th><th>Status</th><th>Detected</th></tr></thead>
+    <tbody>
+      ${list.map(i => {
+        const type = i.event_type || i.type || 'POTHOLE';
+        const buses = i.buses || (i.bus_id ? [i.bus_id] : ['BUS-001']);
+        return `
+        <tr onclick="openIncidentDrawer('${i.incident_id}')">
+          <td class="mono">${i.incident_id}</td>
+          <td><span class="badge type">${type.replace('_', ' ')}</span></td>
+          <td>FC Road Corridor, Pune</td>
+          <td>${sevBadge(i.severity)}</td>
+          <td>${Math.round((i.confidence || 0.9) * 100)}%</td>
+          <td class="mono">${buses.length}</td>
+          <td>${statusBadge(i.status || 'PENDING')}</td>
+          <td>${fmtTime(i.first_observed_at || i.created_at || i.timestamp)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function pageIncidents() {
+  return `
+  <div class="filters">
+    <select id="fType" onchange="applyIncidentFilters()">
+      <option value="">All types</option>
+      <option value="POTHOLE">Pothole</option>
+      <option value="GARBAGE">Garbage</option>
+      <option value="TRAFFIC_OBSTRUCTION">Traffic Obstruction</option>
+      <option value="PEDESTRIAN_RISK">Pedestrian Risk</option>
+    </select>
+    <select id="fSev" onchange="applyIncidentFilters()">
+      <option value="">All severities</option>
+      <option value="HIGH">High</option>
+      <option value="MEDIUM">Medium</option>
+      <option value="LOW">Low</option>
+    </select>
+    <select id="fStatus" onchange="applyIncidentFilters()">
+      <option value="">All statuses</option>
+      <option value="VERIFIED">Verified</option>
+      <option value="PENDING">Pending Fusion</option>
+    </select>
+    <button class="btn ghost sm" onclick="state.route='incidents';render()">Reset</button>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>All Detected Incidents</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">${state.incidents.length} total</span>
+    </div>
+    <div class="panel-body" style="padding-top:0;" id="incidentsTableWrap">
+      ${incidentsTable(state.incidents)}
+    </div>
+  </div>`;
+}
+
+function applyIncidentFilters() {
+  const type = document.getElementById('fType').value;
+  const sev = document.getElementById('fSev').value;
+  const st = document.getElementById('fStatus').value;
+  const filtered = state.incidents.filter(i => {
+    const iType = i.event_type || i.type || 'POTHOLE';
+    const iSev = (i.severity || 'MEDIUM').toUpperCase();
+    const iSt = (i.status || 'PENDING').toUpperCase();
+    return (!type || iType === type) && (!sev || iSev === sev) && (!st || iSt === st);
+  });
+  document.getElementById('incidentsTableWrap').innerHTML = incidentsTable(filtered);
+}
+
+function pageBuses() {
+  if (!state.buses.length) {
+    return `<div class="empty">No bus simulators connected.<br>Start simulators using <code>./.venv/bin/python run_project.py</code> to view live edge telemetry.</div>`;
+  }
+  return `<div class="bus-grid">
+    ${state.buses.map(b => {
+      const isOnline = b.status === 'ONLINE' || b.status === 'online';
+      return `
+      <div class="bus-card" style="cursor:pointer;" onclick="openBusDrawer('${b.bus_id}')">
+        <div class="top">
+          <div>
+            <div class="id">${b.bus_id}</div>
+            <div class="route">${b.route_name || 'FC Road Corridor (ROUTE-PUNE-FC)'}</div>
+          </div>
+          <span class="status-pill ${isOnline ? 'online' : 'offline'}">
+            <span class="dot" style="background:${isOnline ? 'var(--green)' : 'var(--ink-faint)'}"></span>
+            ${isOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+        <div class="bus-meta">
+          <div><span>Speed</span>${b.speed_kmh ? b.speed_kmh.toFixed(1) + ' km/h' : '36 km/h'}</div>
+          <div><span>Heading</span>${b.heading_degrees ? b.heading_degrees.toFixed(0) + '°' : '0°'}</div>
+          <div><span>Last Event</span><span class="mono">${b.last_event || 'EVT-010001'}</span></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function pageFusion() {
+  const pending = state.incidents.filter(i => i.status !== 'VERIFIED' && i.status !== 'verified');
+  const verified = state.incidents.filter(i => i.status === 'VERIFIED' || i.status === 'verified');
+
+  return `
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Pending Fusion & Clustering Queue</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">Spatial Threshold ≤ 25m · Time Window ≤ 2h</span>
+    </div>
+    <div class="panel-body">
+      ${pending.length ? pending.map(inc => {
+        const type = inc.event_type || inc.type || 'POTHOLE';
+        const buses = inc.buses || (inc.bus_id ? [inc.bus_id] : ['BUS-001']);
+        return `
+        <div class="fusion-card">
+          <div class="fusion-head">
+            <span class="badge type">${type.replace('_', ' ')}</span>
+            <span style="font-size:12.5px;font-weight:600;">FC Road Corridor, Pune</span>
+            <span class="mono" style="margin-left:auto;font-size:11px;color:var(--ink-faint);">${inc.incident_id}</span>
+          </div>
+          ${buses.map(b => `
+            <div class="obs-row">
+              <div class="busdot">${b.slice(-3)}</div>
+              <div style="flex:1;font-size:12px;">${b} <span class="mono" style="color:var(--ink-faint);">· Single Bus Observation</span></div>
+              <div style="font-size:11.5px;color:var(--ink-soft);">${Math.round((inc.confidence || 0.85) * 100)}%</div>
+              <div style="font-size:11px;color:var(--ink-faint);">${fmtTime(inc.first_observed_at || inc.created_at)}</div>
+            </div>`).join('')}
+          <div style="margin-top:10px;font-size:11.5px;color:var(--ink-faint);">
+            Awaiting second bus (BUS-002) cross-observation on FC Road to elevate confidence and auto-issue civic ticket.
+          </div>
+        </div>`;
+      }).join('') : `<div class="empty">No uncorroborated single-bus clusters in the fusion queue.</div>`}
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div class="panel-head">
+      <h3>Multi-Bus Verified Incidents</h3>
+      <span style="font-size:11px;color:var(--ink-faint);">${verified.length} verified</span>
+    </div>
+    <div class="panel-body" style="padding-top:0;">
+      ${incidentsTable(verified)}
+    </div>
+  </div>`;
+}
+
+let draggedTicketId = null;
+
+function pageTickets() {
+  const cols = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED'];
+  const labels = { REPORTED: 'Reported', ACKNOWLEDGED: 'Acknowledged', IN_PROGRESS: 'In Progress', RESOLVED: 'Resolved' };
+
+  return `
+  <div style="margin-bottom:12px;font-size:12px;color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <div><strong>Drag and drop</strong> ticket cards or use the stage selector to update municipal ticket resolution progress in real time.</div>
+    <div style="font-size:11px;color:var(--ink-faint);">${state.tickets.length} total municipal tickets</div>
+  </div>
+  <div class="kanban" id="kanbanBoard">
+    ${cols.map(c => {
+      const items = state.tickets.filter(t => (t.status || 'REPORTED') === c);
+      return `
+      <div class="kcol-column">
+        <div class="kcol-head">
+          <h4>${labels[c]}</h4>
+          <span class="n">${items.length}</span>
+        </div>
+        <div class="kcol-body" data-col="${c}"
+             ondragover="handleTicketDragOver(event)"
+             ondragenter="handleTicketDragOver(event)"
+             ondragleave="handleTicketDragLeave(event)"
+             ondrop="handleTicketDrop(event, '${c}')">
+          ${items.length ? items.map(t => {
+            const inc = state.incidents.find(i => i.incident_id === t.incident_id);
+            return `
+            <div class="tcard" draggable="true" id="tcard-${t.ticket_id}"
+                 ondragstart="handleTicketDragStart(event, '${t.ticket_id}')"
+                 ondragend="handleTicketDragEnd(event)"
+                 onclick="handleTicketCardClick(event, '${t.ticket_id}')">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="tid" style="display:flex;align-items:center;">
+                  <span class="tcard-drag-handle" title="Drag ticket card">⋮⋮</span>
+                  ${t.ticket_id}
+                </div>
+                ${statusBadge(t.status || c)}
+              </div>
+              <div class="ttype">${(t.event_type || 'POTHOLE').replace('_', ' ')}</div>
+              <div class="tloc">${t.locality || 'Pune Municipal Corporation'}</div>
+              <div class="tfoot">
+                ${sevBadge(t.priority || (inc ? inc.severity : 'HIGH'))}
+                <span class="sla">${t.estimated_repair_sla_hours || 48}h SLA</span>
+              </div>
+              <div class="tcard-actions" onclick="event.stopPropagation();">
+                <span style="font-size:10px;color:var(--ink-faint);">Stage:</span>
+                <select class="tcard-move-select" onchange="moveTicketToStatus('${t.ticket_id}', this.value)">
+                  ${cols.map(opt => `<option value="${opt}" ${opt === (t.status || c) ? 'selected' : ''}>${labels[opt]}</option>`).join('')}
+                </select>
+              </div>
+            </div>`;
+          }).join('') : `<div class="empty" style="padding:24px 6px;">Drop tickets here</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function handleTicketDragStart(event, ticketId) {
+  draggedTicketId = ticketId;
+  event.dataTransfer.setData('text/plain', ticketId);
+  event.dataTransfer.effectAllowed = 'move';
+  const card = document.getElementById(`tcard-${ticketId}`);
+  if (card) card.classList.add('is-dragging');
+}
+
+function handleTicketDragEnd(event) {
+  if (draggedTicketId) {
+    const card = document.getElementById(`tcard-${draggedTicketId}`);
+    if (card) card.classList.remove('is-dragging');
+  }
+  document.querySelectorAll('.kcol-body').forEach(col => col.classList.remove('drag-over'));
+  draggedTicketId = null;
+}
+
+function handleTicketDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const col = event.currentTarget;
+  if (!col.classList.contains('drag-over')) {
+    col.classList.add('drag-over');
+  }
+}
+
+function handleTicketDragLeave(event) {
+  const col = event.currentTarget;
+  if (!col.contains(event.relatedTarget)) {
+    col.classList.remove('drag-over');
+  }
+}
+
+async function handleTicketDrop(event, targetStatus) {
+  event.preventDefault();
+  const col = event.currentTarget;
+  col.classList.remove('drag-over');
+
+  const ticketId = event.dataTransfer.getData('text/plain') || draggedTicketId;
+  if (!ticketId) return;
+
+  await moveTicketToStatus(ticketId, targetStatus);
+}
+
+function handleTicketCardClick(event, ticketId) {
+  if (event.target.tagName === 'SELECT' || event.target.tagName === 'OPTION') return;
+  openTicketDrawer(ticketId);
+}
+
+async function moveTicketToStatus(ticketId, targetStatus) {
+  const ticket = (state.tickets || []).find(t => t.ticket_id === ticketId);
+  if (!ticket || ticket.status === targetStatus) return;
+
+  const prevStatus = ticket.status;
+  ticket.status = targetStatus;
+  ticket.updated_at = new Date().toISOString();
+
+  // Optimistic UI update on tickets page
+  if (state.route === 'tickets') {
+    document.getElementById('content').innerHTML = pageTickets();
+  }
+
+  try {
+    const resp = await fetch(`/api/v1/tickets/${ticketId}/status?new_status=${targetStatus}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!resp.ok) {
+      const fallback = await fetch(`/tickets/${ticketId}/status?new_status=${targetStatus}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!fallback.ok) throw new Error('Status transition rejected by server');
+      const data = await fallback.json();
+      if (data && data.ticket) Object.assign(ticket, data.ticket);
+    } else {
+      const data = await resp.json();
+      if (data && data.ticket) Object.assign(ticket, data.ticket);
+    }
+  } catch (err) {
+    console.error('Failed to update ticket status:', err);
+    ticket.status = prevStatus;
+    if (state.route === 'tickets') {
+      document.getElementById('content').innerHTML = pageTickets();
+    }
+    alert(`Could not update ticket status: ${err.message || 'Server error'}`);
+  }
+}
+
+function pageReports() {
+  const byType = {};
+  state.incidents.forEach(i => {
+    const t = i.event_type || i.type || 'POTHOLE';
+    byType[t] = (byType[t] || 0) + 1;
+  });
+  const max = Math.max(...Object.values(byType), 1);
+  const totalTickets = state.tickets.length;
+  const resolvedTickets = state.tickets.filter(t => t.status === 'RESOLVED').length;
+  const resolvedPct = totalTickets ? Math.round((resolvedTickets / totalTickets) * 100) : 0;
+
+  return `
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><h3>Incidents by Defect Type</h3></div>
+      <div class="panel-body">
+        <div class="bars">
+          ${Object.entries(byType).length ? Object.entries(byType).map(([t, v]) => `
+            <div class="bar-col">
+              <div class="val">${v}</div>
+              <div class="bar" style="height:${(v / max * 100).toFixed(0)}%;"></div>
+              <div class="lab">${t.replace('_', ' ')}</div>
+            </div>`).join('') : '<div class="empty">No defect data available yet.</div>'}
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Civic Ticket Resolution Rate</h3></div>
+      <div class="panel-body">
+        <div class="kpi" style="border:none;box-shadow:none;padding:4px 0;">
+          <div class="label">Resolved of Total Tickets</div>
+          <div class="value">${resolvedPct}%</div>
+        </div>
+        <div style="height:8px;background:var(--surface-sunken);border-radius:999px;overflow:hidden;margin-top:6px;">
+          <div style="height:100%;width:${resolvedPct}%;background:var(--green);"></div>
+        </div>
+        <div class="section-title">Department Breakdown</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border-soft);">
+          <span>Road Maintenance Dept</span>
+          <span class="mono">${state.tickets.filter(t => (t.event_type || '').includes('POTHOLE')).length} tickets</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border-soft);">
+          <span>Solid Waste Management</span>
+          <span class="mono">${state.tickets.filter(t => (t.event_type || '').includes('GARBAGE')).length} tickets</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function handleGlobalSearch(term) {
+  state.searchTerm = (term || '').trim().toLowerCase();
+  if (!state.searchTerm) return;
+  // If user searched for an incident or ticket ID, auto open drawer if matched
+  const inc = state.incidents.find(i => i.incident_id.toLowerCase().includes(state.searchTerm));
+  if (inc && state.searchTerm.length > 5) {
+    openIncidentDrawer(inc.incident_id);
+    return;
+  }
+  const tkt = state.tickets.find(t => t.ticket_id.toLowerCase().includes(state.searchTerm));
+  if (tkt && state.searchTerm.length > 5) {
+    openTicketDrawer(tkt.ticket_id);
+    return;
+  }
+}
+
+/* =========================================================================
+   ROUTER & MAIN RENDER DISPATCHER
+   ========================================================================= */
+function renderPage() {
+  const r = ROUTES.find(x => x.id === state.route) || ROUTES[0];
+  document.getElementById('pageTitle').textContent = r.label;
+  document.getElementById('pageSub').textContent = r.sub;
+
+  const fns = {
+    dashboard: pageDashboard,
+    buses: pageBuses,
+    incidents: pageIncidents,
+    fusion: pageFusion,
+    tickets: pageTickets,
+    reports: pageReports
+  };
+
+  document.getElementById('content').innerHTML = fns[state.route]();
+
+  if (state.route === 'dashboard') {
+    initLeafletMap();
+  }
+}
+
+function render() {
+  renderNav();
+  renderPage();
+  closeDrawer();
+}
+
+/* =========================================================================
+   REAL-TIME WEBSOCKET & REST DATA PIPELINE
+   ========================================================================= */
+let ws = null;
+let reconnectTimer = null;
+
+function connectWebSocket() {
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${location.host}/ws`;
+
+  try {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      state.connected = true;
+      updateDsIndicator(true);
+      // Keep alive ping
+      setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send('ping');
+      }, 25000);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWsMessage(msg);
+      } catch (err) {
+        // Ping response or string text
+      }
+    };
+
+    ws.onclose = () => {
+      state.connected = false;
+      updateDsIndicator(false);
+      reconnectTimer = setTimeout(connectWebSocket, 2000);
+    };
+
+    ws.onerror = () => {
+      if (ws) ws.close();
+    };
+  } catch (e) {
+    reconnectTimer = setTimeout(connectWebSocket, 2000);
+  }
+}
+
+function handleWsMessage(msg) {
+  if (!msg || !msg.type) return;
+
+  switch (msg.type) {
+    case 'INITIAL_STATE':
+      if (msg.data) {
+        if (msg.data.fleet) state.buses = msg.data.fleet;
+        if (msg.data.incidents) state.incidents = msg.data.incidents;
+        if (msg.data.tickets) state.tickets = msg.data.tickets;
+        if (msg.data.events) state.events = msg.data.events;
+        if (msg.data.stats) state.stats = msg.data.stats;
+        renderNav();
+        renderPage();
+      }
+      break;
+
+    case 'FLEET_UPDATED':
+      if (Array.isArray(msg.data)) {
+        state.buses = msg.data;
+        updateMapMarkers();
+        if (state.route === 'buses') renderPage();
+      }
+      break;
+
+    case 'EVENT_INGESTED':
+      if (msg.data) {
+        state.events.unshift(msg.data);
+        if (state.events.length > 50) state.events.pop();
+      }
+      if (msg.bus) {
+        const idx = state.buses.findIndex(b => b.bus_id === msg.bus.bus_id);
+        if (idx !== -1) state.buses[idx] = msg.bus;
+        else state.buses.push(msg.bus);
+        updateMapMarkers();
+      }
+      if (msg.stats) state.stats = msg.stats;
+      break;
+
+    case 'INCIDENT_CREATED':
+    case 'NEW_INCIDENT':
+      if (msg.data) {
+        const idx = state.incidents.findIndex(i => i.incident_id === msg.data.incident_id);
+        if (idx === -1) state.incidents.unshift(msg.data);
+        else state.incidents[idx] = msg.data;
+        updateMapMarkers();
+        renderNav();
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+          updateDashboardRecentTable();
+        } else if (state.route === 'incidents' || state.route === 'fusion') {
+          renderPage();
+        }
+      }
+      break;
+
+    case 'INCIDENT_UPDATED':
+      if (msg.data) {
+        const idx = state.incidents.findIndex(i => i.incident_id === msg.data.incident_id);
+        if (idx !== -1) state.incidents[idx] = msg.data;
+        else state.incidents.unshift(msg.data);
+        updateMapMarkers();
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+          updateDashboardRecentTable();
+        } else if (state.route === 'incidents' || state.route === 'fusion') {
+          renderPage();
+        }
+        if (state.selectedIncidentId === msg.data.incident_id && document.getElementById('drawer') && document.getElementById('drawer').classList.contains('open')) {
+          openIncidentDrawer(msg.data.incident_id);
+        }
+      }
+      break;
+
+    case 'TICKET_CREATED':
+      if (msg.data) {
+        const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
+        if (idx === -1) state.tickets.unshift(msg.data);
+        else state.tickets[idx] = msg.data;
+        renderNav();
+        if (state.route === 'tickets') {
+          document.getElementById('content').innerHTML = pageTickets();
+        } else if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
+      }
+      break;
+
+    case 'TICKET_STATUS_UPDATED':
+      if (msg.data) {
+        const idx = state.tickets.findIndex(t => t.ticket_id === msg.data.ticket_id);
+        if (idx !== -1) state.tickets[idx] = msg.data;
+        if (state.route === 'tickets') {
+          document.getElementById('content').innerHTML = pageTickets();
+        } else if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
+      }
+      break;
+
+    case 'STATS_UPDATED':
+      if (msg.data) {
+        state.stats = msg.data;
+        if (state.route === 'dashboard') {
+          updateDashboardKpis();
+        }
+      }
+      break;
+  }
+}
+
+// Initial REST fetch sync
+async function syncInitialData() {
+  try {
+    const [fleetRes, incRes, tktRes, statsRes] = await Promise.all([
+      fetch('/api/v1/fleet').then(r => r.json()).catch(() => ({ fleet: [] })),
+      fetch('/api/v1/incidents').then(r => r.json()).catch(() => ({ incidents: [] })),
+      fetch('/api/v1/tickets').then(r => r.json()).catch(() => ({ tickets: [] })),
+      fetch('/api/v1/stats').then(r => r.json()).catch(() => ({}))
+    ]);
+
+    if (fleetRes.fleet) state.buses = fleetRes.fleet;
+    if (incRes.incidents) state.incidents = incRes.incidents;
+    if (tktRes.tickets) state.tickets = tktRes.tickets;
+    if (statsRes.total_incidents !== undefined) state.stats = statsRes;
+
+    renderNav();
+    if (state.route === 'dashboard') {
+      updateDashboardKpis();
+      updateDashboardRecentTable();
+      updateMapMarkers();
+    } else {
+      renderPage();
+    }
+  } catch (e) {
+    console.warn('Initial sync error, awaiting WebSocket:', e);
+  }
+}
+
+// Boot application
+render();
+syncInitialData();
+connectWebSocket();
+
+// Periodic fallback polling every 5 seconds to ensure absolute real-time parity without interrupting user map view
+setInterval(async () => {
+  try {
+    const [fleetRes, incRes, tktRes] = await Promise.all([
+      fetch('/api/v1/fleet').then(r => r.json()).catch(() => null),
+      fetch('/api/v1/incidents').then(r => r.json()).catch(() => null),
+      fetch('/api/v1/tickets').then(r => r.json()).catch(() => null)
+    ]);
+    if (fleetRes && fleetRes.fleet) {
+      state.buses = fleetRes.fleet;
+      updateMapMarkers();
+      if (state.route === 'dashboard') updateDashboardKpis();
+    }
+    if (incRes && incRes.incidents) {
+      state.incidents = incRes.incidents;
+      updateMapMarkers();
+      if (state.route === 'dashboard') {
+        updateDashboardKpis();
+        updateDashboardRecentTable();
+      }
+    }
+    if (tktRes && tktRes.tickets) {
+      state.tickets = tktRes.tickets;
+      if (state.route === 'dashboard') updateDashboardKpis();
+    }
+  } catch (e) {}
+}, 5000);
+</script>
+</body>
+</html>
